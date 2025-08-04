@@ -4,4 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "aiortc>=1.13.0",
+    "mediapipe>=0.10.21",
+    "opencv-python>=4.11.0.86",
+    "pyrtmp>=0.3.1",
+    "uvloop>=0.21.0",
+]
