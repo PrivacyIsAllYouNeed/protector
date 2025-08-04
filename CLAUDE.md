@@ -4,6 +4,8 @@
 
 This repository implements a privacy-preserving video processing system for smart glasses and similar applications. It provides real-time face anonymization with consent management, allowing developers to build applications without privacy concerns.
 
+Impl plan available at: `./tmp/project.md`
+
 ## Project Structure
 
 - `./filter/` - Real-time privacy filter implementation (Python)
