@@ -19,10 +19,8 @@ Real-time video processing pipeline that:
 - Outputs WebRTC stream + local storage
 
 ### 2. Control API (`./api/`)
-FastAPI backend for:
-- Managing consent records
-- Accessing recorded videos
-- Data operations (no database, file-based)
+
+TODO
 
 ### 3. Example App (`./examples/rewind/`)
 Web application demonstrating:
@@ -35,3 +33,22 @@ Web application demonstrating:
 - All face data is processed locally, no external APIs
 - Consent is detected through voice commands processed by local LLM
 - File-based storage for simplicity (no database setup required)
+
+## Pre-commit Commands
+
+### For `./filter/` directory
+Run these commands before committing changes:
+
+```bash
+# Run tests
+uv run pytest
+
+# Type checking
+uv run basedpyright
+
+# Linting
+uv run ruff check --fix
+
+# Formatting
+uv run ruff format
+```
