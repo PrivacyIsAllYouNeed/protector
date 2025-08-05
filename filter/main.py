@@ -100,8 +100,11 @@ def blur_faces_in_frame(frame: VideoFrame) -> VideoFrame:
             # Replace original ROI with blurred version
             bgr[y1:y2, x1:x2] = roi_blurred
 
-    # Convert back to VideoFrame
-    return VideoFrame.from_ndarray(bgr, format="bgr24")
+    # Convert back to VideoFrame, preserving timing information
+    new_frame = VideoFrame.from_ndarray(bgr, format="bgr24")
+    new_frame.pts = frame.pts
+    new_frame.time_base = frame.time_base
+    return new_frame
 
 
 def blur_and_send(
