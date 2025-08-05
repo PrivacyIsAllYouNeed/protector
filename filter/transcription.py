@@ -16,13 +16,13 @@ Overview of how it works:
 3. Voice Activity Detection (VAD):
    - Uses Silero VAD model for robust speech detection
    - Processes audio in 32ms chunks (512 samples at 16kHz)
-   - Detects speech segments and silence periods
-   - Triggers transcription after 400ms of silence (configurable)
+   - Returns speech state dictionary when speech is active
+   - Returns None after configured silence duration (400ms default)
 
 4. Speech Buffering:
-   - Ring buffer accumulates PCM audio data
-   - VAD tracks speech segments across multiple chunks
-   - Collects complete utterances before transcription
+   - Ring buffer accumulates incoming PCM audio data
+   - Speech buffer collects audio chunks during active speech
+   - Automatically transcribes when VAD detects speech end
 
 5. Speech-to-Text:
    - Uses faster-whisper for efficient CPU-based transcription
@@ -88,7 +88,6 @@ class TranscriptionHandler:
         # Extract VAD utilities from tuple
         # The tuple contains: (get_speech_timestamps, save_audio, read_audio, VADIterator, collect_chunks)
         VADIterator = vad_utils[3]  # type: ignore
-        self.collect_chunks = vad_utils[4]  # type: ignore
 
         self.vad = VADIterator(
             vad_model,
@@ -109,6 +108,8 @@ class TranscriptionHandler:
         # Audio resampler for converting to 16kHz mono
         self.resampler: Optional[AudioResampler] = None
         self.ring_buffer = bytearray()  # Accumulates raw int16 PCM
+        self.speech_buffer = bytearray()  # Accumulates speech audio in int16 PCM
+        self.is_speaking = False  # Track if currently in speech segment
 
         logging.info(
             "Transcription handler initialized (model=%s, VAD threshold=%.2f, silence=%dms)",
@@ -178,27 +179,43 @@ class TranscriptionHandler:
 
             # Feed chunks to VAD
             while len(self.ring_buffer) >= self.chunk_bytes:
-                chunk = np.frombuffer(self.ring_buffer[: self.chunk_bytes], np.int16)
+                chunk_bytes = self.ring_buffer[: self.chunk_bytes]
+                chunk = np.frombuffer(chunk_bytes, np.int16)
                 self.ring_buffer = self.ring_buffer[self.chunk_bytes :]
 
                 # Normalize to float32 [-1, 1] for VAD
                 chunk_float = chunk.astype(np.float32) / 32768.0
 
-                # Process with VAD
-                state = self.vad(chunk_float)
+                # Convert to torch tensor for VAD
+                chunk_tensor = torch.from_numpy(chunk_float)
 
-                # If speech segment ended (None = silence detected)
-                if state is None:
-                    self._transcribe_collected_speech()
+                # Process with VAD
+                speech_dict = self.vad(chunk_tensor)
+
+                # VAD returns dict with speech info or None when speech ends
+                if speech_dict is not None:
+                    # Speech detected - accumulate audio
+                    if not self.is_speaking:
+                        self.is_speaking = True
+                        logging.debug("Speech started")
+                    self.speech_buffer.extend(chunk_bytes)
+                else:
+                    # Speech ended (silence detected)
+                    if self.is_speaking:
+                        self.is_speaking = False
+                        logging.debug("Speech ended, transcribing...")
+                        self._transcribe_collected_speech()
 
     def _transcribe_collected_speech(self) -> None:
-        """Collect VAD chunks and transcribe the speech segment."""
-        pcm_bytes = self.collect_chunks(self.vad)
-        if not pcm_bytes:
+        """Transcribe the collected speech segment."""
+        if not self.speech_buffer:
             return
 
-        # Convert PCM bytes to float32 array for Whisper
-        audio = np.frombuffer(pcm_bytes, np.int16).astype(np.float32) / 32768.0
+        # Convert collected int16 PCM bytes to float32 array for Whisper
+        audio = np.frombuffer(self.speech_buffer, np.int16).astype(np.float32) / 32768.0
+
+        # Clear the speech buffer for next segment
+        self.speech_buffer.clear()
 
         # Transcribe with Whisper
         segments, _info = self.asr.transcribe(
@@ -211,6 +228,7 @@ class TranscriptionHandler:
         for segment in segments:
             text = segment.text.strip()
             if text:  # Only print non-empty segments
+                # Log at INFO level for visibility (will appear in stdout with timestamp)
                 logging.info(
                     "[Transcription] [%.2fs → %.2fs] %s",
                     segment.start,
@@ -218,7 +236,6 @@ class TranscriptionHandler:
                     text,
                 )
                 # TODO: In the future, this could be sent to a queue, WebSocket, or database
-                print(f"[{segment.start:6.2f}s → {segment.end:6.2f}s] {text}")
 
     def flush(self) -> None:
         """
@@ -233,15 +250,28 @@ class TranscriptionHandler:
                 self.ring_buffer.extend(bytes(self.chunk_bytes - remaining))
 
             # Process final chunk
-            chunk = np.frombuffer(self.ring_buffer[: self.chunk_bytes], np.int16)
+            chunk_bytes = self.ring_buffer[: self.chunk_bytes]
+            chunk = np.frombuffer(chunk_bytes, np.int16)
             chunk_float = chunk.astype(np.float32) / 32768.0
-            _ = self.vad(chunk_float)
+            chunk_tensor = torch.from_numpy(chunk_float)
+
+            # Process with VAD and accumulate if speech
+            speech_dict = self.vad(chunk_tensor)
+            if speech_dict is not None:
+                self.speech_buffer.extend(chunk_bytes)
 
         # Force transcribe any remaining speech
-        self._transcribe_collected_speech()
+        if self.speech_buffer:
+            self._transcribe_collected_speech()
 
         # Clear buffers
         self.ring_buffer.clear()
+        self.speech_buffer.clear()
+        self.is_speaking = False
+
+        # Reset VAD states for next session
+        self.vad.reset_states()
+
         logging.info("Transcription handler flushed")
 
 
