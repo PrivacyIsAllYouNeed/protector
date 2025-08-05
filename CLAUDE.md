@@ -57,15 +57,9 @@ React/TypeScript application showcasing the privacy infrastructure:
 Run these commands before committing changes:
 
 ```bash
-# Install dependencies
-npm install
-
 # Build the application
 npm run build
 
 # Run linting
 npm run lint
-
-# Development server
-npm run dev
 ```
