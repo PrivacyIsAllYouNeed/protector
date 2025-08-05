@@ -1,5 +1,39 @@
 """
 Real-time transcription using Silero VAD and faster-whisper.
+
+Overview of how it works:
+-------------------------
+1. Audio Stream Processing:
+   - Receives audio packets from RTMP input stream via PyAV
+   - Decodes packets into audio frames for processing
+   - Maintains compatibility with main audio remuxing pipeline
+
+2. Audio Resampling:
+   - Automatically resamples any input audio format to 16kHz mono PCM
+   - Uses PyAV's AudioResampler for efficient format conversion
+   - 16kHz chosen as optimal for both VAD and speech recognition
+
+3. Voice Activity Detection (VAD):
+   - Uses Silero VAD model for robust speech detection
+   - Processes audio in 32ms chunks (512 samples at 16kHz)
+   - Detects speech segments and silence periods
+   - Triggers transcription after 400ms of silence (configurable)
+
+4. Speech Buffering:
+   - Ring buffer accumulates PCM audio data
+   - VAD tracks speech segments across multiple chunks
+   - Collects complete utterances before transcription
+
+5. Speech-to-Text:
+   - Uses faster-whisper for efficient CPU-based transcription
+   - Runs with int8 quantization for optimal performance
+   - Processes complete speech segments from VAD
+   - Returns timestamped transcription text
+
+6. Output:
+   - Prints transcribed text to stdout with timestamps
+   - Logs transcription events for debugging
+   - Ready for integration with WebSocket, database, or API endpoints
 """
 
 import os

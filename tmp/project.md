@@ -16,35 +16,15 @@ This is the core engine that processes video streams in real-time. It receives R
 
 ### Features
 
-- **Input**: RTMP stream (via `PyRTMP` with `uvloop`)
-- **Output**: WebRTC stream (via `aiortc`) + local video storage
 - **Face Processing**:
-  - Detect all faces using MediaPipe.
   - Blur non-consenting faces.
   - Face matching using `face_recognition`.
   - Display name label next to consenting faces (if provided).
 - **Verbal Consent Detection**:
-  - Use `Silero VAD` to detect speech segments.
-  - Transcribe with `faster-whisper`.
   - Detect consent from the transcript and extract names using local llm, `llama-cpp-python` with `gemma 3 1b`.
   - Update face matching registry based on recognized consent.
 - **Storage**:
   - Processed video is stored locally using `MediaRecorder` from `aiortc`.
-
-### Tech Stack
-
-- Python
-- Video Input/Output:
-  - `PyRTMP` with `uvloop` — RTMP server
-  - `aiortc` — WebRTC server and recorder
-- Video Processing:
-  - `MediaPipe` — face detection
-  - `face_recognition` — face matching
-  - `opencv-python` — blurring, labeling
-- Audio Processing:
-  - `Silero VAD` — voice activity detection
-  - `faster-whisper` — speech-to-text. Recieves sentence(s) from silero and transcribes.
-  - `llama-cpp-python` + `gemma 3 1b` — consent detection
 
 ## 2. Control API Server
 
@@ -75,9 +55,3 @@ Note: No database is used for now. All data is handled as files on disk.
   - List and manage consenting users
   - List and manage/view recordings
 - Placeholder UI for future AI Chat feature (currently grayed out as coming soon)
-
-### Tech Stack
-
-- `vite`
-- `react`
-- `typescript`

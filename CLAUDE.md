@@ -16,22 +16,29 @@ Impl plan available at: `./tmp/project.md`
 
 ### 1. Privacy Filter (`./filter/`)
 
-Real-time video processing pipeline with face anonymization:
+Real-time video processing pipeline with face anonymization and transcription:
 
 **Features:**
 - Receives RTMP input streams with video and audio
 - Detects and blurs faces using YuNet neural network
+- Real-time speech transcription using Silero VAD + faster-whisper
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption
 
 **Main File Structure:**
 ```
 filter/
-├── main.py          # Main relay loop and stream orchestration
-├── face_detector.py # Face detection and blurring using YuNet
-├── audio_handler.py # Audio stream detection and remuxing
-└── config.py        # Configuration constants (URLs, codecs, etc.)
+├── main.py           # Main relay loop and stream orchestration
+├── face_detector.py  # Face detection and blurring using YuNet
+├── audio_handler.py  # Audio stream detection and remuxing
+├── transcription.py  # Real-time speech-to-text
+└── config.py         # Configuration constants (URLs, codecs, etc.)
 ```
+
+**Transcription Pipeline:**
+- Voice Activity Detection (VAD) segments speech in real-time
+- Transcribes utterances after X ms silence
+- Outputs timestamped text to stdout
 
 Run these commands before committing changes:
 
