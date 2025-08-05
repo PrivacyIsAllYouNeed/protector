@@ -35,6 +35,8 @@ class FaceDetector:
             backend_id=cv2.dnn.DNN_BACKEND_OPENCV,
             target_id=cv2.dnn.DNN_TARGET_CPU,
         )
+        # Track current input size to avoid unnecessary updates
+        self.current_input_size: tuple[int, int] | None = None
 
     def blur_faces_in_frame(self, frame: VideoFrame) -> VideoFrame:
         """
@@ -50,8 +52,11 @@ class FaceDetector:
         bgr = frame.to_ndarray(format="bgr24")
         h, w = bgr.shape[:2]
 
-        # Update detector input size to match frame dimensions
-        self.detector.setInputSize((w, h))
+        # Update detector input size only if frame dimensions changed
+        new_size = (w, h)
+        if self.current_input_size != new_size:
+            self.detector.setInputSize(new_size)
+            self.current_input_size = new_size
 
         # Detect faces - returns tuple of (retval, faces)
         # faces can be None (when no faces) or np.ndarray

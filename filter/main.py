@@ -24,7 +24,7 @@ from config import (
     VIDEO_PIX_FMT,
     RTSP_TRANSPORT,
 )
-from face_detector import get_face_detector
+from face_detector import get_face_detector, FaceDetector
 from audio_handler import AudioHandler
 
 logging.basicConfig(
@@ -45,10 +45,10 @@ def blur_and_send(
     frame: VideoFrame,
     out_stream: VideoStream,
     out_container: OutputContainer,
+    face_detector: FaceDetector,
 ) -> None:
     """Process frame with face blur and send."""
     # Apply face detection and blurring
-    face_detector = get_face_detector()
     processed_frame = face_detector.blur_faces_in_frame(frame)
 
     # Encode and send
@@ -72,6 +72,9 @@ def relay_once() -> None:
         # Setup audio handler
         audio_handler = AudioHandler()
         audio_handler.detect_audio_stream(in_container)
+
+        # Get face detector instance once for this session
+        face_detector = get_face_detector()
 
         # Setup video decoder
         decoder = in_container.decode(video=0)
@@ -109,7 +112,7 @@ def relay_once() -> None:
         audio_handler.setup_output_stream(out_container)
 
         # Process first video frame
-        blur_and_send(first, out_stream, out_container)
+        blur_and_send(first, out_stream, out_container, face_detector)
 
         # Process both audio and video packets
         while not STOP_EVENT.is_set():
@@ -124,7 +127,9 @@ def relay_once() -> None:
                         frames = packet.decode()
                         for frame in frames:
                             if isinstance(frame, VideoFrame):
-                                blur_and_send(frame, out_stream, out_container)
+                                blur_and_send(
+                                    frame, out_stream, out_container, face_detector
+                                )
                     elif packet.stream.type == "audio" and audio_handler.has_audio():
                         # Remux audio packets directly without decoding
                         audio_handler.remux_packet(packet, out_container)
