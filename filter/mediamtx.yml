@@ -1,0 +1,4 @@
+rtmp: no
+paths:
+  all:
+    source: publisher
