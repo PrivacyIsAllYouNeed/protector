@@ -46,4 +46,26 @@ TODO
 
 ### 3. Example App (`./examples/rewind/`)
 
-TODO
+React/TypeScript application showcasing the privacy infrastructure:
+
+- Real-time WHEP video streaming display
+- Connection status monitoring
+- Privacy-first UI with consent management panels
+- Recording management interface (planned)
+- AI chat integration (planned)
+
+Run these commands before committing changes:
+
+```bash
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+
+# Run linting
+npm run lint
+
+# Development server
+npm run dev
+```
