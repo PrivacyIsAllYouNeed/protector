@@ -26,6 +26,7 @@ from config import (
 )
 from face_detector import get_face_detector, FaceDetector
 from audio_handler import AudioHandler
+from transcription import get_transcription_handler, TranscriptionHandler
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
@@ -71,7 +72,13 @@ def relay_once() -> None:
 
         # Setup audio handler
         audio_handler = AudioHandler()
-        audio_handler.detect_audio_stream(in_container)
+        has_audio = audio_handler.detect_audio_stream(in_container)
+
+        # Setup transcription handler if audio is present
+        transcription_handler: TranscriptionHandler | None = None
+        if has_audio:
+            transcription_handler = get_transcription_handler()
+            logging.info("Transcription enabled for this session")
 
         # Get face detector instance once for this session
         face_detector = get_face_detector()
@@ -131,7 +138,13 @@ def relay_once() -> None:
                                     frame, out_stream, out_container, face_detector
                                 )
                     elif packet.stream.type == "audio" and audio_handler.has_audio():
-                        # Remux audio packets directly without decoding
+                        # Process audio for transcription if enabled
+                        if transcription_handler:
+                            # Decode and process audio frames for transcription
+                            for audio_frame in audio_handler.decode_packet(packet):
+                                transcription_handler.process_audio_frame(audio_frame)
+
+                        # Remux audio packets for output
                         audio_handler.remux_packet(packet, out_container)
 
             except TimeoutError:
@@ -142,6 +155,11 @@ def relay_once() -> None:
         # Flush encoder
         for pkt in out_stream.encode():
             out_container.mux(pkt)
+
+        # Flush transcription handler
+        if transcription_handler:
+            transcription_handler.flush()
+
         logging.info("Publisher disconnected (EOF).")
     finally:
         try:

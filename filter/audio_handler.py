@@ -3,10 +3,11 @@ Audio stream handling for RTMP/RTSP relay.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Generator
 import av
 from av.container import InputContainer, OutputContainer
 from av.audio.stream import AudioStream
+from av.audio.frame import AudioFrame
 
 
 class AudioHandler:
@@ -82,3 +83,19 @@ class AudioHandler:
     def has_audio(self) -> bool:
         """Check if audio streams are configured."""
         return self.output_stream is not None
+
+    def decode_packet(self, packet: av.Packet) -> Generator[AudioFrame, None, None]:
+        """
+        Decode audio packet into frames.
+
+        Args:
+            packet: Audio packet to decode
+
+        Yields:
+            Decoded audio frames
+        """
+        if packet.stream.type == "audio":
+            frames = packet.decode()
+            for frame in frames:
+                if isinstance(frame, AudioFrame):
+                    yield frame

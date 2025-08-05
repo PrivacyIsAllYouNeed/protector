@@ -1,0 +1,223 @@
+"""
+Real-time transcription using Silero VAD and faster-whisper.
+"""
+
+import os
+import logging
+from typing import Optional, Any, Tuple
+import numpy as np
+import torch
+from av.audio.resampler import AudioResampler
+from av.audio.frame import AudioFrame
+from faster_whisper import WhisperModel
+
+
+class TranscriptionHandler:
+    """Handles real-time audio transcription with VAD and Whisper."""
+
+    def __init__(
+        self,
+        model_size: str = "small.en",
+        vad_threshold: float = 0.5,
+        min_silence_ms: int = 400,
+        sampling_rate: int = 16000,
+        chunk_size: int = 512,
+    ):
+        """
+        Initialize transcription handler with VAD and Whisper models.
+
+        Args:
+            model_size: Whisper model size (e.g., "small.en", "medium.en")
+            vad_threshold: VAD activation threshold (0.5-0.6 for noisy environments)
+            min_silence_ms: Minimum silence duration to end speech segment
+            sampling_rate: Target sampling rate for transcription (16000 Hz)
+            chunk_size: Size of audio chunks to feed to VAD (512 ≈ 32ms at 16kHz)
+        """
+        self.sampling_rate = sampling_rate
+        self.chunk_size = chunk_size
+        self.chunk_bytes = chunk_size * 2  # int16 = 2 bytes per sample
+
+        # CPU threads for processing
+        cpu_count = os.cpu_count()
+        n_threads = max(4, cpu_count // 2) if cpu_count else 4
+
+        # Initialize Silero VAD
+        logging.info("Loading Silero VAD model...")
+        torch.set_num_threads(n_threads)
+        vad_result: Tuple[Any, Tuple[Any, ...]] = torch.hub.load(  # type: ignore
+            repo_or_dir="snakers4/silero-vad",
+            model="silero_vad",
+            trust_repo=True,
+        )
+        vad_model = vad_result[0]
+        vad_utils = vad_result[1]
+        # Extract VAD utilities from tuple
+        # The tuple contains: (get_speech_timestamps, save_audio, read_audio, VADIterator, collect_chunks)
+        VADIterator = vad_utils[3]  # type: ignore
+        self.collect_chunks = vad_utils[4]  # type: ignore
+
+        self.vad = VADIterator(
+            vad_model,
+            sampling_rate=sampling_rate,
+            threshold=vad_threshold,
+            min_silence_duration_ms=min_silence_ms,
+        )
+
+        # Initialize faster-whisper
+        logging.info(f"Loading Whisper model: {model_size}")
+        self.asr = WhisperModel(
+            model_size_or_path=model_size,
+            device="cpu",
+            compute_type="int8",
+            cpu_threads=n_threads,
+        )
+
+        # Audio resampler for converting to 16kHz mono
+        self.resampler: Optional[AudioResampler] = None
+        self.ring_buffer = bytearray()  # Accumulates raw int16 PCM
+
+        logging.info(
+            "Transcription handler initialized (model=%s, VAD threshold=%.2f, silence=%dms)",
+            model_size,
+            vad_threshold,
+            min_silence_ms,
+        )
+
+    def setup_resampler(
+        self, input_format: str, input_layout: str, input_rate: int
+    ) -> None:
+        """
+        Setup audio resampler based on input stream parameters.
+
+        Args:
+            input_format: Input audio format
+            input_layout: Input channel layout
+            input_rate: Input sample rate
+        """
+        self.resampler = AudioResampler(
+            format="s16",
+            layout="mono",
+            rate=self.sampling_rate,
+        )
+        logging.info(
+            "Audio resampler configured: %s/%s/%dHz -> s16/mono/%dHz",
+            input_format,
+            input_layout,
+            input_rate,
+            self.sampling_rate,
+        )
+
+    def process_audio_frame(self, frame: AudioFrame) -> None:
+        """
+        Process an audio frame for transcription.
+
+        Args:
+            frame: Audio frame from PyAV
+        """
+        if not self.resampler:
+            # Setup resampler on first frame if not already done
+            self.setup_resampler(
+                str(frame.format.name), str(frame.layout.name), frame.sample_rate
+            )
+
+        # Resample to 16kHz mono
+        if self.resampler:
+            resampled_frames = self.resampler.resample(frame)
+        else:
+            return
+        for resampled_frame in resampled_frames:
+            mono_array = resampled_frame.to_ndarray()
+
+            # Handle multi-dimensional arrays (channels)
+            if len(mono_array.shape) > 1:
+                mono_array = mono_array[0]  # Take first channel
+
+            # Convert to int16 bytes
+            if mono_array.dtype != np.int16:
+                # Ensure we're in the right range for int16
+                if mono_array.dtype in [np.float32, np.float64]:
+                    mono_array = (mono_array * 32768).astype(np.int16)
+                else:
+                    mono_array = mono_array.astype(np.int16)
+
+            self.ring_buffer.extend(mono_array.tobytes())
+
+            # Feed chunks to VAD
+            while len(self.ring_buffer) >= self.chunk_bytes:
+                chunk = np.frombuffer(self.ring_buffer[: self.chunk_bytes], np.int16)
+                self.ring_buffer = self.ring_buffer[self.chunk_bytes :]
+
+                # Normalize to float32 [-1, 1] for VAD
+                chunk_float = chunk.astype(np.float32) / 32768.0
+
+                # Process with VAD
+                state = self.vad(chunk_float)
+
+                # If speech segment ended (None = silence detected)
+                if state is None:
+                    self._transcribe_collected_speech()
+
+    def _transcribe_collected_speech(self) -> None:
+        """Collect VAD chunks and transcribe the speech segment."""
+        pcm_bytes = self.collect_chunks(self.vad)
+        if not pcm_bytes:
+            return
+
+        # Convert PCM bytes to float32 array for Whisper
+        audio = np.frombuffer(pcm_bytes, np.int16).astype(np.float32) / 32768.0
+
+        # Transcribe with Whisper
+        segments, info = self.asr.transcribe(
+            audio,
+            beam_size=5,
+            language="en",  # Force English for better accuracy with .en models
+        )
+
+        # Print transcribed segments
+        for segment in segments:
+            text = segment.text.strip()
+            if text:  # Only print non-empty segments
+                logging.info(
+                    "[Transcription] [%.2fs → %.2fs] %s",
+                    segment.start,
+                    segment.end,
+                    text,
+                )
+                # TODO: In the future, this could be sent to a queue, WebSocket, or database
+                print(f"[{segment.start:6.2f}s → {segment.end:6.2f}s] {text}")
+
+    def flush(self) -> None:
+        """
+        Flush any remaining audio in the buffer and transcribe.
+        Called when stream ends.
+        """
+        # Process any remaining chunks in VAD
+        if len(self.ring_buffer) > 0:
+            # Pad the remaining buffer to chunk size if needed
+            remaining = len(self.ring_buffer)
+            if remaining < self.chunk_bytes:
+                self.ring_buffer.extend(bytes(self.chunk_bytes - remaining))
+
+            # Process final chunk
+            chunk = np.frombuffer(self.ring_buffer[: self.chunk_bytes], np.int16)
+            chunk_float = chunk.astype(np.float32) / 32768.0
+            _ = self.vad(chunk_float)
+
+        # Force transcribe any remaining speech
+        self._transcribe_collected_speech()
+
+        # Clear buffers
+        self.ring_buffer.clear()
+        logging.info("Transcription handler flushed")
+
+
+# Singleton instance management
+_transcription_handler: Optional[TranscriptionHandler] = None
+
+
+def get_transcription_handler() -> TranscriptionHandler:
+    """Get or create the singleton transcription handler instance."""
+    global _transcription_handler
+    if _transcription_handler is None:
+        _transcription_handler = TranscriptionHandler()
+    return _transcription_handler
