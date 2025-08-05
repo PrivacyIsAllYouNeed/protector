@@ -8,7 +8,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
 
   // WHEP endpoint configuration (port 8889 as specified in requirements)
-  const whepEndpoint = 'http://localhost:8889/whep'
+  const whepEndpoint = 'http://localhost:8889/blurred/whep'
 
   const handleConnectionStateChange = useCallback((state: RTCPeerConnectionState) => {
     setConnectionState(state)
@@ -37,10 +37,10 @@ function App() {
         <section className="video-section">
           <h2>Live Stream</h2>
           <p className="section-description">
-            Processed video stream with privacy protection. Faces are blurred by default 
+            Processed video stream with privacy protection. Faces are blurred by default
             until explicit consent is given.
           </p>
-          
+
           <WHEPClient
             whepEndpoint={whepEndpoint}
             onConnectionStateChange={handleConnectionStateChange}
@@ -64,7 +64,7 @@ function App() {
                 <code className="endpoint">{whepEndpoint}</code>
               </div>
             </div>
-            
+
             {error && (
               <div className="error-panel">
                 <h4>Error</h4>
@@ -110,7 +110,7 @@ function App() {
 
       <footer className="app-footer">
         <p>
-          Privacy-first video streaming infrastructure • 
+          Privacy-first video streaming infrastructure •
           Built with React, WebRTC, and WHEP protocol
         </p>
       </footer>
