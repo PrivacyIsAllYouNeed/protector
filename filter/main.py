@@ -8,6 +8,9 @@ import signal
 import threading
 from types import FrameType
 from pathlib import Path
+from typing import Any, cast
+import numpy as np
+from numpy.typing import NDArray
 import av
 import cv2
 from av.container import InputContainer, OutputContainer
@@ -26,7 +29,8 @@ FACE_BLUR_KERNEL = (51, 51)  # Stronger blur for faces
 MODEL_PATH = Path(__file__).parent / "face_detection_yunet_2023mar.onnx"
 
 # Initialize YuNet face detector
-face_detector = cv2.FaceDetectorYN.create(
+# Type as Any since cv2.FaceDetectorYN is not fully typed
+face_detector: Any = cv2.FaceDetectorYN.create(  # pyright: ignore[reportExplicitAny]
     model=str(MODEL_PATH),
     config="",
     input_size=(320, 320),  # Default size, will be adjusted per frame
@@ -54,24 +58,27 @@ def blur_faces_in_frame(frame: VideoFrame) -> VideoFrame:
     h, w = bgr.shape[:2]
 
     # Update detector input size to match frame dimensions
-    face_detector.setInputSize((w, h))
+    face_detector.setInputSize((w, h))  # pyright: ignore[reportAny]
 
-    # Detect faces
-    _, faces = face_detector.detect(bgr)
+    # Detect faces - returns tuple of (retval, faces)
+    # faces can be None (when no faces) or np.ndarray
+    _, faces_result = face_detector.detect(bgr)  # pyright: ignore[reportAny]
+
+    # Cast faces_result to handle the union type properly
+    faces: NDArray[np.float32] | None = cast(NDArray[np.float32] | None, faces_result)
 
     # If no faces detected, return original frame
     if faces is None or len(faces) == 0:
         return frame
 
     # Apply blur to each detected face
-    for face in faces:
-        x, y, face_w, face_h, score = (
-            float(face[0]),
-            float(face[1]),
-            float(face[2]),
-            float(face[3]),
-            float(face[4]),
-        )
+    for i in range(len(faces)):
+        face_row = faces[i]  # pyright: ignore[reportAny]
+        x: float = float(face_row[0])  # pyright: ignore[reportAny]
+        y: float = float(face_row[1])  # pyright: ignore[reportAny]
+        face_w: float = float(face_row[2])  # pyright: ignore[reportAny]
+        face_h: float = float(face_row[3])  # pyright: ignore[reportAny]
+        score: float = float(face_row[4])  # pyright: ignore[reportAny]
 
         # Skip low confidence detections
         if score < 0.5:
