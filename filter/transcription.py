@@ -201,7 +201,7 @@ class TranscriptionHandler:
         audio = np.frombuffer(pcm_bytes, np.int16).astype(np.float32) / 32768.0
 
         # Transcribe with Whisper
-        segments, info = self.asr.transcribe(
+        segments, _info = self.asr.transcribe(
             audio,
             beam_size=5,
             language="en",  # Force English for better accuracy with .en models
