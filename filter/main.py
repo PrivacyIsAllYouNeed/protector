@@ -1,20 +1,18 @@
-#!/usr/bin/env python3
 """
 RTMP -> Gaussian blur -> RTSP relay with auto-reconnect.
 """
 
 import time
 import logging
-from collections.abc import Iterator
+import signal
+import threading
 import av
 import cv2
 import numpy as np
 from av.container import InputContainer, OutputContainer
 from av.video.stream import VideoStream
 from av.video.frame import VideoFrame
-from av.packet import Packet
-from av.error import FFmpegError
-
+from av.error import FFmpegError, TimeoutError
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
@@ -25,6 +23,15 @@ OUT_URL = "rtsp://127.0.0.1:8554/blurred"  # push to MediaMTX
 FPS = 30
 BLUR_KERNEL = (21, 21)
 
+STOP_EVENT = threading.Event()
+
+
+def _sigint_handler(signum, frame):
+    STOP_EVENT.set()
+
+
+signal.signal(signal.SIGINT, _sigint_handler)
+
 
 def blur_and_send(
     frame: VideoFrame,
@@ -34,27 +41,44 @@ def blur_and_send(
     """Apply blur and send one frame."""
     img = frame.to_ndarray(format="bgr24")
     blurred = cv2.GaussianBlur(img, BLUR_KERNEL, 0)
-    # Ensure proper type for from_ndarray
     new_frame = VideoFrame.from_ndarray(blurred.astype(np.uint8), format="bgr24")
-    packets: list[Packet] = out_stream.encode(new_frame)
-    for pkt in packets:
+    for pkt in out_stream.encode(new_frame):
         out_container.mux(pkt)
 
 
 def relay_once() -> None:
-    """Handle one publishing session until EOF/disconnect."""
+    """Handle one publishing session until EOF/disconnect or Ctrl-C."""
     logging.info("Waiting for RTMP publisher...")
     in_container: InputContainer | None = None
     out_container: OutputContainer | None = None
     try:
-        in_container = av.open(IN_URL, mode="r", options={"listen": "1"})
-        decoder: Iterator[VideoFrame] = in_container.decode(video=0)
-        first: VideoFrame = next(decoder)  # blocks until first frame
+        in_container = av.open(
+            IN_URL,
+            mode="r",
+            options={"listen": "1"},
+            timeout=(5.0, 1.0),  # short read-timeout
+        )
+        decoder = in_container.decode(video=0)
+
+        # wait for first frame / publisher
+        while True:
+            if STOP_EVENT.is_set():
+                return
+            try:
+                first = next(decoder)
+                break
+            except TimeoutError:
+                continue
+
         w, h = first.width, first.height
         logging.info("Publisher connected (%dx%d).", w, h)
 
         out_container = av.open(
-            OUT_URL, mode="w", format="rtsp", options={"rtsp_transport": "tcp"}
+            OUT_URL,
+            mode="w",
+            format="rtsp",
+            options={"rtsp_transport": "tcp"},
+            timeout=(5.0, 1.0),
         )
         out_stream: VideoStream = out_container.add_stream(  # pyright: ignore[reportUnknownMemberType]
             "libx264", rate=FPS, options={"preset": "veryfast", "tune": "zerolatency"}
@@ -63,20 +87,22 @@ def relay_once() -> None:
         out_stream.height = h
         out_stream.pix_fmt = "yuv420p"
 
-        # Process the first frame via the same path.
         blur_and_send(first, out_stream, out_container)
 
-        # Process the rest.
-        for frame in decoder:
+        while not STOP_EVENT.is_set():
+            try:
+                frame = next(decoder)
+            except TimeoutError:
+                continue
+            except StopIteration:
+                break
             blur_and_send(frame, out_stream, out_container)
 
         # Flush encoder
-        flush_packets: list[Packet] = out_stream.encode()
-        for pkt in flush_packets:
+        for pkt in out_stream.encode():
             out_container.mux(pkt)
         logging.info("Publisher disconnected (EOF).")
     finally:
-        # Always close containers to free sockets/handles.
         try:
             if out_container is not None:
                 out_container.close()
@@ -90,9 +116,19 @@ def relay_once() -> None:
 
 
 if __name__ == "__main__":
-    while True:
+    while not STOP_EVENT.is_set():
         try:
             relay_once()
-        except (StopIteration, FFmpegError, OSError) as e:
+        except (StopIteration, TimeoutError):
+            # benign end-of-stream or poll timeout – keep silent
+            if STOP_EVENT.is_set():
+                break
+        except (FFmpegError, OSError) as e:
+            if STOP_EVENT.is_set():
+                break
+            # suppress the noise
+            if "Immediate exit requested" in str(e):
+                continue
             logging.warning("Stream ended with error: %s", str(e))
         time.sleep(1)  # brief backoff
+    logging.info("Interrupted by user (Ctrl-C). Exiting.")
