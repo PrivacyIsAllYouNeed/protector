@@ -112,9 +112,13 @@ class TranscriptionHandler:
         self.ring_buffer = bytearray()  # Accumulates raw int16 PCM
         self.speech_buffer = bytearray()  # Accumulates speech audio in int16 PCM
         self.is_speaking = False  # Track if currently in speech segment
+        self.stream_time_offset = 0.0  # Track cumulative stream time in seconds
+        self.speech_start_time = 0.0  # Track when current speech segment started
 
-        # Threading for async transcription
-        self.transcription_queue: queue.Queue[Optional[np.ndarray]] = queue.Queue()
+        # Threading for async transcription (stores tuples of (audio, start_time))
+        self.transcription_queue: queue.Queue[Optional[Tuple[np.ndarray, float]]] = (
+            queue.Queue()
+        )
         self.stop_event = threading.Event()
         self.transcription_thread = threading.Thread(
             target=self._transcription_worker, daemon=True
@@ -207,14 +211,21 @@ class TranscriptionHandler:
                     # Speech detected - accumulate audio
                     if not self.is_speaking:
                         self.is_speaking = True
-                        logging.debug("Speech started")
+                        self.speech_start_time = self.stream_time_offset
+                        logging.debug("Speech started at %.2fs", self.speech_start_time)
                     self.speech_buffer.extend(chunk_bytes)
                 else:
                     # Speech ended (silence detected)
                     if self.is_speaking:
                         self.is_speaking = False
-                        logging.debug("Speech ended, queueing for transcription...")
+                        logging.debug(
+                            "Speech ended at %.2fs, queueing for transcription...",
+                            self.stream_time_offset,
+                        )
                         self._queue_speech_for_transcription()
+
+                # Update stream time offset (chunk_size samples at sampling_rate Hz)
+                self.stream_time_offset += self.chunk_size / self.sampling_rate
 
     def _queue_speech_for_transcription(self) -> None:
         """Queue the collected speech segment for async transcription."""
@@ -224,12 +235,15 @@ class TranscriptionHandler:
         # Convert collected int16 PCM bytes to float32 array for Whisper
         audio = np.frombuffer(self.speech_buffer, np.int16).astype(np.float32) / 32768.0
 
+        # Store the start time for this speech segment
+        segment_start_time = self.speech_start_time
+
         # Clear the speech buffer for next segment
         self.speech_buffer.clear()
 
-        # Queue for async transcription (non-blocking)
+        # Queue for async transcription with timing info (non-blocking)
         try:
-            self.transcription_queue.put_nowait(audio)
+            self.transcription_queue.put_nowait((audio, segment_start_time))
         except queue.Full:
             logging.warning("Transcription queue full, dropping audio segment")
 
@@ -240,10 +254,13 @@ class TranscriptionHandler:
         while not self.stop_event.is_set():
             try:
                 # Get audio from queue with timeout to check stop_event periodically
-                audio = self.transcription_queue.get(timeout=0.5)
+                item = self.transcription_queue.get(timeout=0.5)
 
-                if audio is None:  # Sentinel value to stop
+                if item is None:  # Sentinel value to stop
                     break
+
+                # Unpack audio and timing info
+                audio, segment_start_time = item
 
                 # Transcribe with Whisper
                 segments, _info = self.asr.transcribe(
@@ -252,15 +269,18 @@ class TranscriptionHandler:
                     language="en",  # Force English for better accuracy with .en models
                 )
 
-                # Print transcribed segments
+                # Print transcribed segments with corrected timestamps
                 for segment in segments:
                     text = segment.text.strip()
                     if text:  # Only print non-empty segments
+                        # Add stream time offset to Whisper's relative timestamps
+                        actual_start = segment_start_time + segment.start
+                        actual_end = segment_start_time + segment.end
                         # Log at INFO level for visibility (will appear in stdout with timestamp)
                         logging.info(
                             "[Transcription] [%.2fs → %.2fs] %s",
-                            segment.start,
-                            segment.end,
+                            actual_start,
+                            actual_end,
                             text,
                         )
                         # TODO: In the future, this could be sent to a queue, WebSocket, or database
@@ -312,8 +332,10 @@ class TranscriptionHandler:
         # Process any remaining items in queue
         while not self.transcription_queue.empty():
             try:
-                audio = self.transcription_queue.get_nowait()
-                if audio is not None:
+                item = self.transcription_queue.get_nowait()
+                if item is not None:
+                    # Unpack audio and timing info
+                    audio, segment_start_time = item
                     # Do a final synchronous transcription for remaining items
                     segments, _info = self.asr.transcribe(
                         audio,
@@ -323,17 +345,22 @@ class TranscriptionHandler:
                     for segment in segments:
                         text = segment.text.strip()
                         if text:
+                            # Add stream time offset to get actual timestamps
+                            actual_start = segment_start_time + segment.start
+                            actual_end = segment_start_time + segment.end
                             logging.info(
                                 "[Transcription] [%.2fs → %.2fs] %s",
-                                segment.start,
-                                segment.end,
+                                actual_start,
+                                actual_end,
                                 text,
                             )
             except queue.Empty:
                 break
 
-        # Reset VAD states for next session
+        # Reset VAD states and timing for next session
         self.vad.reset_states()
+        self.stream_time_offset = 0.0
+        self.speech_start_time = 0.0
 
         logging.info("Transcription handler flushed")
 

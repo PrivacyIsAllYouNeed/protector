@@ -4,10 +4,10 @@ Audio stream handling for RTMP/RTSP relay.
 
 import logging
 from typing import Optional, Generator
-import av
 from av.container import InputContainer, OutputContainer
 from av.audio.stream import AudioStream
 from av.audio.frame import AudioFrame
+from av.packet import Packet
 
 
 class AudioHandler:
@@ -68,7 +68,7 @@ class AudioHandler:
 
         return False
 
-    def remux_packet(self, packet: av.Packet, out_container: OutputContainer) -> None:
+    def remux_packet(self, packet: Packet, out_container: OutputContainer) -> None:
         """
         Remux audio packet to output container.
 
@@ -77,16 +77,21 @@ class AudioHandler:
             out_container: Output container to mux packet into
         """
         if self.output_stream and packet.stream.type == "audio":
+            # Store original stream to restore after remux
+            original_stream = packet.stream
             packet.stream = self.output_stream
             out_container.mux(packet)
+            # Restore original stream so packet can be decoded afterward
+            packet.stream = original_stream
 
     def has_audio(self) -> bool:
         """Check if audio streams are configured."""
         return self.output_stream is not None
 
-    def decode_packet(self, packet: av.Packet) -> Generator[AudioFrame, None, None]:
+    def decode_packet(self, packet: Packet) -> Generator[AudioFrame, None, None]:
         """
-        Decode audio packet into frames.
+        Decode audio packet into frames using the input stream's decoder.
+        This method can be used even after the packet has been remuxed.
 
         Args:
             packet: Audio packet to decode
@@ -94,8 +99,9 @@ class AudioHandler:
         Yields:
             Decoded audio frames
         """
-        if packet.stream.type == "audio":
-            frames = packet.decode()
-            for frame in frames:
+        if packet.stream.type == "audio" and self.input_stream:
+            # Use the input stream's decoder to decode the packet
+            # This works even if packet.stream has been temporarily changed
+            for frame in self.input_stream.decode(packet):
                 if isinstance(frame, AudioFrame):
                     yield frame
