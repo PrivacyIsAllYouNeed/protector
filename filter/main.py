@@ -1,5 +1,5 @@
 """
-RTMP -> Gaussian blur -> RTSP relay with auto-reconnect.
+RTMP -> Face detection and blur using YuNet -> RTSP relay with auto-reconnect.
 """
 
 import time
@@ -7,9 +7,9 @@ import logging
 import signal
 import threading
 from types import FrameType
+from pathlib import Path
 import av
 import cv2
-import numpy as np
 from av.container import InputContainer, OutputContainer
 from av.video.stream import VideoStream
 from av.video.frame import VideoFrame
@@ -22,7 +22,20 @@ logging.basicConfig(
 IN_URL = "rtmp://0.0.0.0:1935/live/stream"  # listen mode
 OUT_URL = "rtsp://127.0.0.1:8554/blurred"  # push to MediaMTX
 FPS = 30
-BLUR_KERNEL = (21, 21)
+FACE_BLUR_KERNEL = (51, 51)  # Stronger blur for faces
+MODEL_PATH = Path(__file__).parent / "face_detection_yunet_2023mar.onnx"
+
+# Initialize YuNet face detector
+face_detector = cv2.FaceDetectorYN.create(
+    model=str(MODEL_PATH),
+    config="",
+    input_size=(320, 320),  # Default size, will be adjusted per frame
+    score_threshold=0.7,  # Lower threshold for better detection
+    nms_threshold=0.3,
+    top_k=5000,
+    backend_id=cv2.dnn.DNN_BACKEND_OPENCV,
+    target_id=cv2.dnn.DNN_TARGET_CPU,
+)
 
 STOP_EVENT = threading.Event()
 
@@ -34,16 +47,67 @@ def _sigint_handler(_signum: int, _frame: FrameType | None) -> None:
 _ = signal.signal(signal.SIGINT, _sigint_handler)
 
 
+def blur_faces_in_frame(frame: VideoFrame) -> VideoFrame:
+    """Detect and blur faces in a VideoFrame using YuNet."""
+    # Convert PyAV frame to NumPy array (BGR format)
+    bgr = frame.to_ndarray(format="bgr24")
+    h, w = bgr.shape[:2]
+
+    # Update detector input size to match frame dimensions
+    face_detector.setInputSize((w, h))
+
+    # Detect faces
+    _, faces = face_detector.detect(bgr)
+
+    # If no faces detected, return original frame
+    if faces is None or len(faces) == 0:
+        return frame
+
+    # Apply blur to each detected face
+    for face in faces:
+        x, y, face_w, face_h, score = (
+            float(face[0]),
+            float(face[1]),
+            float(face[2]),
+            float(face[3]),
+            float(face[4]),
+        )
+
+        # Skip low confidence detections
+        if score < 0.5:
+            continue
+
+        # Calculate bounding box with some padding
+        padding = int(min(face_w, face_h) * 0.1)
+        x1 = int(max(0, x - padding))
+        y1 = int(max(0, y - padding))
+        x2 = int(min(w - 1, x + face_w + padding))
+        y2 = int(min(h - 1, y + face_h + padding))
+
+        # Extract ROI
+        roi = bgr[y1:y2, x1:x2]
+
+        # Apply Gaussian blur to ROI if it's not empty
+        if roi.size > 0:
+            roi_blurred = cv2.GaussianBlur(roi, FACE_BLUR_KERNEL, 0)
+            # Replace original ROI with blurred version
+            bgr[y1:y2, x1:x2] = roi_blurred
+
+    # Convert back to VideoFrame
+    return VideoFrame.from_ndarray(bgr, format="bgr24")
+
+
 def blur_and_send(
     frame: VideoFrame,
     out_stream: VideoStream,
     out_container: OutputContainer,
 ) -> None:
-    """Apply blur and send one frame."""
-    img = frame.to_ndarray(format="bgr24")
-    blurred = cv2.GaussianBlur(img, BLUR_KERNEL, 0)
-    new_frame = VideoFrame.from_ndarray(blurred.astype(np.uint8), format="bgr24")
-    for pkt in out_stream.encode(new_frame):
+    """Process frame with face blur and send."""
+    # Apply face detection and blurring
+    processed_frame = blur_faces_in_frame(frame)
+
+    # Encode and send
+    for pkt in out_stream.encode(processed_frame):
         out_container.mux(pkt)
 
 
