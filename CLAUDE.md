@@ -16,18 +16,28 @@ Impl plan available at: `./tmp/project.md`
 
 ### 1. Privacy Filter (`./filter/`)
 
-Real-time video processing pipeline that:
+Real-time video processing pipeline with face anonymization:
 
-- Receives RTMP streams
-- Process video stream (planned)
-- Outputs rtmp
-- mediamtx exposes webrtc stream
+**Features:**
+- Receives RTMP input streams with video and audio
+- Detects and blurs faces using YuNet neural network
+- Outputs to RTSP with preserved audio
+- MediaMTX exposes WebRTC stream for consumption
+
+**Main File Structure:**
+```
+filter/
+├── main.py          # Main relay loop and stream orchestration
+├── face_detector.py # Face detection and blurring using YuNet
+├── audio_handler.py # Audio stream detection and remuxing
+└── config.py        # Configuration constants (URLs, codecs, etc.)
+```
 
 Run these commands before committing changes:
 
 ```bash
-# Run tests
-uv run pytest
+# Run tests (currently no tests, skip this)
+# uv run pytest
 
 # Type checking
 uv run basedpyright
