@@ -19,10 +19,9 @@ Impl plan available at: `./tmp/project.md`
 Real-time video processing pipeline that:
 
 - Receives RTMP streams
-- Detects and blurs faces by default
-- Listens for verbal consent
-- Re-identifies consenting individuals
-- Outputs WebRTC stream + local storage
+- Process video stream (planned)
+- Outputs rtmp
+- mediamtx exposes webrtc stream
 
 Run these commands before committing changes:
 
