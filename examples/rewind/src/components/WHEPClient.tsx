@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+// Video stats interface
+interface VideoStats {
+  resolution: {
+    width: number | null;
+    height: number | null;
+  };
+  fps: number | null;
+  framesDecoded: number | null;
+}
+
 // WHEP client types
 interface WHEPClientProps {
   whepEndpoint: string;
   onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
   onError?: (error: Error) => void;
+  onStatsUpdate?: (stats: VideoStats) => void;
   className?: string;
 }
 
@@ -12,6 +23,7 @@ interface WHEPClientState {
   connectionState: RTCPeerConnectionState;
   isConnecting: boolean;
   error: string | null;
+  stats: VideoStats;
 }
 
 /**
@@ -25,14 +37,21 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
   whepEndpoint,
   onConnectionStateChange,
   onError,
+  onStatsUpdate,
   className = ''
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const statsIntervalRef = useRef<number | null>(null);
   const [state, setState] = useState<WHEPClientState>({
     connectionState: 'new',
     isConnecting: false,
-    error: null
+    error: null,
+    stats: {
+      resolution: { width: null, height: null },
+      fps: null,
+      framesDecoded: null
+    }
   });
 
   // Handle connection state changes
@@ -61,6 +80,34 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
       videoRef.current.srcObject = event.streams[0];
     }
   }, []);
+
+  // Collect video stats from PeerConnection
+  const collectStats = useCallback(async () => {
+    const pc = peerConnectionRef.current;
+    if (!pc || pc.connectionState !== 'connected') return;
+
+    try {
+      const stats = await pc.getStats();
+      for (const report of stats.values()) {
+        if (report.type === 'track' && report.kind === 'video') {
+          const newStats: VideoStats = {
+            resolution: {
+              width: report.frameWidth ?? null,
+              height: report.frameHeight ?? null
+            },
+            fps: report.framesPerSecond ?? null,
+            framesDecoded: report.framesDecoded ?? null
+          };
+          
+          setState(prev => ({ ...prev, stats: newStats }));
+          onStatsUpdate?.(newStats);
+          break; // Only process first video track
+        }
+      }
+    } catch (error) {
+      console.error('Error collecting stats:', error);
+    }
+  }, [onStatsUpdate]);
 
   // Create WebRTC peer connection
   const createPeerConnection = useCallback(() => {
@@ -120,6 +167,12 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
       setState(prev => ({ ...prev, isConnecting: false }));
       console.log('WHEP connection established');
 
+      // Start collecting stats every second
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+      }
+      statsIntervalRef.current = setInterval(collectStats, 1000);
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setState(prev => ({ 
@@ -130,7 +183,7 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
       onError?.(error instanceof Error ? error : new Error(errorMessage));
       console.error('WHEP connection failed:', error);
     }
-  }, [whepEndpoint, createPeerConnection, onError]);
+  }, [whepEndpoint, createPeerConnection, onError, collectStats]);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -140,6 +193,10 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
+    }
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
     }
   }, []);
 
@@ -202,6 +259,24 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
           Status: {state.connectionState}
         </span>
       </div>
+
+      {/* Video stats */}
+      {state.connectionState === 'connected' && (
+        <div className="video-stats">
+          <div className="stat-item">
+            <label>RES:</label>
+            <span>{state.stats.resolution.width ?? '—'} × {state.stats.resolution.height ?? '—'}</span>
+          </div>
+          <div className="stat-item">
+            <label>FPS:</label>
+            <span>{state.stats.fps?.toFixed(1) ?? '—'}</span>
+          </div>
+          <div className="stat-item">
+            <label>DECODED:</label>
+            <span>{state.stats.framesDecoded ?? '—'} frames</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
