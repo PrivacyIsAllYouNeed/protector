@@ -12,23 +12,33 @@ import cv2
 try:
     from av.error import FFmpegError  # type: ignore
 except Exception:  # pragma: no cover
+
     class FFmpegError(Exception):  # minimal fallback
         pass
 
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO)
 
-IN_URL = "rtmp://0.0.0.0:1935/live/stream"   # listen mode
-OUT_URL = "rtsp://127.0.0.1:8554/blurred"    # push to MediaMTX
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
+)
+
+IN_URL = "rtmp://0.0.0.0:1935/live/stream"  # listen mode
+OUT_URL = "rtsp://127.0.0.1:8554/blurred"  # push to MediaMTX
 FPS = 30
 BLUR_KERNEL = (21, 21)
 
-def blur_and_send(frame: av.VideoFrame, out_stream: av.video.stream.VideoStream, out_container: av.container.OutputContainer) -> None:
+
+def blur_and_send(
+    frame: av.VideoFrame,
+    out_stream: av.video.stream.VideoStream,
+    out_container: av.container.OutputContainer,
+) -> None:
     """Apply blur and send one frame."""
     img = frame.to_ndarray(format="bgr24")
     blurred = cv2.GaussianBlur(img, BLUR_KERNEL, 0)
     new_frame = av.VideoFrame.from_ndarray(blurred, format="bgr24")
     for pkt in out_stream.encode(new_frame):
         out_container.mux(pkt)
+
 
 def relay_once() -> None:
     """Handle one publishing session until EOF/disconnect."""
@@ -42,7 +52,9 @@ def relay_once() -> None:
         w, h = first.width, first.height
         logging.info("Publisher connected (%dx%d).", w, h)
 
-        out_container = av.open(OUT_URL, mode="w", format="rtsp", options={"rtsp_transport": "tcp"})
+        out_container = av.open(
+            OUT_URL, mode="w", format="rtsp", options={"rtsp_transport": "tcp"}
+        )
         out_stream = out_container.add_stream("libx264", rate=FPS)
         out_stream.width = w
         out_stream.height = h
@@ -72,6 +84,7 @@ def relay_once() -> None:
                 in_container.close()
         except Exception:
             pass
+
 
 if __name__ == "__main__":
     while True:
