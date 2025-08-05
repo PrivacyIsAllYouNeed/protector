@@ -16,8 +16,6 @@ This is the core engine that processes video streams in real-time. It receives R
 
 ### Features
 
-- **Input**: RTMP stream (via `PyRTMP` with `uvloop`)
-- **Output**: WebRTC stream (via `aiortc`) + local video storage
 - **Face Processing**:
   - Detect all faces using MediaPipe.
   - Blur non-consenting faces.

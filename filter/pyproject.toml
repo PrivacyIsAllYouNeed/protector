@@ -24,3 +24,9 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.12.7",
 ]
+
+[tool.basedpyright]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = true
+reportAny = false
+reportExplicitAny = false
