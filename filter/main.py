@@ -10,7 +10,6 @@ from types import FrameType
 import av
 from av.container import InputContainer, OutputContainer
 from av.video.stream import VideoStream
-from av.audio.stream import AudioStream
 from av.video.frame import VideoFrame
 from av.error import FFmpegError, TimeoutError
 
@@ -26,6 +25,7 @@ from config import (
     RTSP_TRANSPORT,
 )
 from face_detector import get_face_detector
+from audio_handler import AudioHandler
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
@@ -69,12 +69,9 @@ def relay_once() -> None:
             timeout=CONNECTION_TIMEOUT,  # short read-timeout
         )
 
-        # Check for audio stream
-        audio_stream = None
-        out_audio_stream = None
-        if in_container.streams.audio:
-            audio_stream = in_container.streams.audio[0]
-            logging.info("Audio stream detected: %s", audio_stream.codec_context.name)
+        # Setup audio handler
+        audio_handler = AudioHandler()
+        audio_handler.detect_audio_stream(in_container)
 
         # Setup video decoder
         decoder = in_container.decode(video=0)
@@ -108,27 +105,8 @@ def relay_once() -> None:
         out_stream.height = h
         out_stream.pix_fmt = VIDEO_PIX_FMT
 
-        # Add audio stream if present in input
-        if audio_stream:
-            # Copy audio codec from input
-            codec_name = audio_stream.codec_context.name
-            audio_out = out_container.add_stream(codec_name, rate=audio_stream.rate)
-            # Type check to ensure we have an AudioStream
-            if isinstance(audio_out, AudioStream):
-                out_audio_stream = audio_out
-                # Copy codec context parameters
-                out_audio_stream.codec_context.layout = (
-                    audio_stream.codec_context.layout
-                )
-                out_audio_stream.codec_context.sample_rate = (
-                    audio_stream.codec_context.sample_rate
-                )
-                logging.info(
-                    "Audio stream added to output: %s at %dHz with %d channels",
-                    codec_name,
-                    audio_stream.rate,
-                    audio_stream.codec_context.channels,
-                )
+        # Setup audio output stream if present
+        audio_handler.setup_output_stream(out_container)
 
         # Process first video frame
         blur_and_send(first, out_stream, out_container)
@@ -147,10 +125,9 @@ def relay_once() -> None:
                         for frame in frames:
                             if isinstance(frame, VideoFrame):
                                 blur_and_send(frame, out_stream, out_container)
-                    elif packet.stream.type == "audio" and out_audio_stream:
+                    elif packet.stream.type == "audio" and audio_handler.has_audio():
                         # Remux audio packets directly without decoding
-                        packet.stream = out_audio_stream
-                        out_container.mux(packet)
+                        audio_handler.remux_packet(packet, out_container)
 
             except TimeoutError:
                 continue
