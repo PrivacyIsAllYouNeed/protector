@@ -88,9 +88,11 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
 
     try {
       const stats = await pc.getStats();
+      
+      // Find video stats from inbound-rtp reports
       for (const report of stats.values()) {
-        if (report.type === 'track' && report.kind === 'video') {
-          const newStats: VideoStats = {
+        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          const videoStats: VideoStats = {
             resolution: {
               width: report.frameWidth ?? null,
               height: report.frameHeight ?? null
@@ -99,9 +101,9 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
             framesDecoded: report.framesDecoded ?? null
           };
           
-          setState(prev => ({ ...prev, stats: newStats }));
-          onStatsUpdate?.(newStats);
-          break; // Only process first video track
+          setState(prev => ({ ...prev, stats: videoStats }));
+          onStatsUpdate?.(videoStats);
+          break; // Only process first video stream
         }
       }
     } catch (error) {
