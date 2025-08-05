@@ -6,6 +6,7 @@ import time
 import logging
 import signal
 import threading
+from types import FrameType
 import av
 import cv2
 import numpy as np
@@ -26,11 +27,11 @@ BLUR_KERNEL = (21, 21)
 STOP_EVENT = threading.Event()
 
 
-def _sigint_handler(signum, frame):
+def _sigint_handler(_signum: int, _frame: FrameType | None) -> None:
     STOP_EVENT.set()
 
 
-signal.signal(signal.SIGINT, _sigint_handler)
+_ = signal.signal(signal.SIGINT, _sigint_handler)
 
 
 def blur_and_send(
