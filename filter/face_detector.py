@@ -2,7 +2,7 @@
 Face detection and blurring module using YuNet.
 """
 
-from typing import Any, cast
+from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 import cv2
@@ -25,7 +25,7 @@ class FaceDetector:
     def __init__(self) -> None:
         """Initialize the YuNet face detector."""
         # Type as Any since cv2.FaceDetectorYN is not fully typed
-        self.detector: Any = cv2.FaceDetectorYN.create(  # pyright: ignore[reportExplicitAny]
+        self.detector: Any = cv2.FaceDetectorYN.create(
             model=str(MODEL_PATH),
             config="",
             input_size=(320, 320),  # Default size, will be adjusted per frame
@@ -51,16 +51,14 @@ class FaceDetector:
         h, w = bgr.shape[:2]
 
         # Update detector input size to match frame dimensions
-        self.detector.setInputSize((w, h))  # pyright: ignore[reportAny]
+        self.detector.setInputSize((w, h))
 
         # Detect faces - returns tuple of (retval, faces)
         # faces can be None (when no faces) or np.ndarray
-        _, faces_result = self.detector.detect(bgr)  # pyright: ignore[reportAny]
+        _, faces_result = self.detector.detect(bgr)
 
-        # Cast faces_result to handle the union type properly
-        faces: NDArray[np.float32] | None = cast(
-            NDArray[np.float32] | None, faces_result
-        )
+        # Handle the union type properly
+        faces: NDArray[np.float32] | None = faces_result
 
         # If no faces detected, return original frame
         if faces is None or len(faces) == 0:
@@ -91,12 +89,12 @@ class FaceDetector:
             Image with faces blurred
         """
         for i in range(len(faces)):
-            face_row = faces[i]  # pyright: ignore[reportAny]
-            x: float = float(face_row[0])  # pyright: ignore[reportAny]
-            y: float = float(face_row[1])  # pyright: ignore[reportAny]
-            face_w: float = float(face_row[2])  # pyright: ignore[reportAny]
-            face_h: float = float(face_row[3])  # pyright: ignore[reportAny]
-            score: float = float(face_row[4])  # pyright: ignore[reportAny]
+            face_row = faces[i]
+            x: float = float(face_row[0])
+            y: float = float(face_row[1])
+            face_w: float = float(face_row[2])
+            face_h: float = float(face_row[3])
+            score: float = float(face_row[4])
 
             # Skip low confidence detections
             if score < FACE_MIN_CONFIDENCE:
@@ -136,4 +134,3 @@ def get_face_detector() -> FaceDetector:
     if _face_detector is None:
         _face_detector = FaceDetector()
     return _face_detector
-

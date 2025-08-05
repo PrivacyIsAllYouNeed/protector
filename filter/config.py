@@ -31,4 +31,3 @@ VIDEO_PIX_FMT = "yuv420p"
 
 # Transport settings
 RTSP_TRANSPORT = "tcp"
-

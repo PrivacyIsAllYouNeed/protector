@@ -101,7 +101,7 @@ def relay_once() -> None:
         )
 
         # Add video stream
-        out_stream: VideoStream = out_container.add_stream(  # pyright: ignore[reportUnknownMemberType]
+        out_stream: VideoStream = out_container.add_stream(
             VIDEO_CODEC, rate=FPS, options={"preset": VIDEO_PRESET, "tune": VIDEO_TUNE}
         )
         out_stream.width = w
@@ -112,7 +112,7 @@ def relay_once() -> None:
         if audio_stream:
             # Copy audio codec from input
             codec_name = audio_stream.codec_context.name
-            audio_out = out_container.add_stream(codec_name, rate=audio_stream.rate)  # pyright: ignore[reportUnknownMemberType]
+            audio_out = out_container.add_stream(codec_name, rate=audio_stream.rate)
             # Type check to ensure we have an AudioStream
             if isinstance(audio_out, AudioStream):
                 out_audio_stream = audio_out
