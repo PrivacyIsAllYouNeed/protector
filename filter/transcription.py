@@ -38,6 +38,8 @@ Overview of how it works:
 
 import os
 import logging
+import threading
+import queue
 from typing import Optional, Any, Tuple
 import numpy as np
 import torch
@@ -110,6 +112,14 @@ class TranscriptionHandler:
         self.ring_buffer = bytearray()  # Accumulates raw int16 PCM
         self.speech_buffer = bytearray()  # Accumulates speech audio in int16 PCM
         self.is_speaking = False  # Track if currently in speech segment
+
+        # Threading for async transcription
+        self.transcription_queue: queue.Queue[Optional[np.ndarray]] = queue.Queue()
+        self.stop_event = threading.Event()
+        self.transcription_thread = threading.Thread(
+            target=self._transcription_worker, daemon=True
+        )
+        self.transcription_thread.start()
 
         logging.info(
             "Transcription handler initialized (model=%s, VAD threshold=%.2f, silence=%dms)",
@@ -203,11 +213,11 @@ class TranscriptionHandler:
                     # Speech ended (silence detected)
                     if self.is_speaking:
                         self.is_speaking = False
-                        logging.debug("Speech ended, transcribing...")
-                        self._transcribe_collected_speech()
+                        logging.debug("Speech ended, queueing for transcription...")
+                        self._queue_speech_for_transcription()
 
-    def _transcribe_collected_speech(self) -> None:
-        """Transcribe the collected speech segment."""
+    def _queue_speech_for_transcription(self) -> None:
+        """Queue the collected speech segment for async transcription."""
         if not self.speech_buffer:
             return
 
@@ -217,25 +227,50 @@ class TranscriptionHandler:
         # Clear the speech buffer for next segment
         self.speech_buffer.clear()
 
-        # Transcribe with Whisper
-        segments, _info = self.asr.transcribe(
-            audio,
-            beam_size=5,
-            language="en",  # Force English for better accuracy with .en models
-        )
+        # Queue for async transcription (non-blocking)
+        try:
+            self.transcription_queue.put_nowait(audio)
+        except queue.Full:
+            logging.warning("Transcription queue full, dropping audio segment")
 
-        # Print transcribed segments
-        for segment in segments:
-            text = segment.text.strip()
-            if text:  # Only print non-empty segments
-                # Log at INFO level for visibility (will appear in stdout with timestamp)
-                logging.info(
-                    "[Transcription] [%.2fs → %.2fs] %s",
-                    segment.start,
-                    segment.end,
-                    text,
+    def _transcription_worker(self) -> None:
+        """Background worker thread for processing transcriptions."""
+        logging.info("Transcription worker thread started")
+
+        while not self.stop_event.is_set():
+            try:
+                # Get audio from queue with timeout to check stop_event periodically
+                audio = self.transcription_queue.get(timeout=0.5)
+
+                if audio is None:  # Sentinel value to stop
+                    break
+
+                # Transcribe with Whisper
+                segments, _info = self.asr.transcribe(
+                    audio,
+                    beam_size=5,
+                    language="en",  # Force English for better accuracy with .en models
                 )
-                # TODO: In the future, this could be sent to a queue, WebSocket, or database
+
+                # Print transcribed segments
+                for segment in segments:
+                    text = segment.text.strip()
+                    if text:  # Only print non-empty segments
+                        # Log at INFO level for visibility (will appear in stdout with timestamp)
+                        logging.info(
+                            "[Transcription] [%.2fs → %.2fs] %s",
+                            segment.start,
+                            segment.end,
+                            text,
+                        )
+                        # TODO: In the future, this could be sent to a queue, WebSocket, or database
+
+            except queue.Empty:
+                continue
+            except Exception as e:
+                logging.error("Error in transcription worker: %s", e)
+
+        logging.info("Transcription worker thread stopped")
 
     def flush(self) -> None:
         """
@@ -262,12 +297,40 @@ class TranscriptionHandler:
 
         # Force transcribe any remaining speech
         if self.speech_buffer:
-            self._transcribe_collected_speech()
+            self._queue_speech_for_transcription()
 
         # Clear buffers
         self.ring_buffer.clear()
         self.speech_buffer.clear()
         self.is_speaking = False
+
+        # Stop transcription thread gracefully
+        self.stop_event.set()
+        self.transcription_queue.put(None)  # Sentinel to unblock worker
+        self.transcription_thread.join(timeout=5.0)
+
+        # Process any remaining items in queue
+        while not self.transcription_queue.empty():
+            try:
+                audio = self.transcription_queue.get_nowait()
+                if audio is not None:
+                    # Do a final synchronous transcription for remaining items
+                    segments, _info = self.asr.transcribe(
+                        audio,
+                        beam_size=5,
+                        language="en",
+                    )
+                    for segment in segments:
+                        text = segment.text.strip()
+                        if text:
+                            logging.info(
+                                "[Transcription] [%.2fs → %.2fs] %s",
+                                segment.start,
+                                segment.end,
+                                text,
+                            )
+            except queue.Empty:
+                break
 
         # Reset VAD states for next session
         self.vad.reset_states()
