@@ -15,6 +15,7 @@ import av
 import cv2
 from av.container import InputContainer, OutputContainer
 from av.video.stream import VideoStream
+from av.audio.stream import AudioStream
 from av.video.frame import VideoFrame
 from av.error import FFmpegError, TimeoutError
 
@@ -133,6 +134,15 @@ def relay_once() -> None:
             options={"listen": "1"},
             timeout=(5.0, 1.0),  # short read-timeout
         )
+
+        # Check for audio stream
+        audio_stream = None
+        out_audio_stream = None
+        if in_container.streams.audio:
+            audio_stream = in_container.streams.audio[0]
+            logging.info("Audio stream detected: %s", audio_stream.codec_context.name)
+
+        # Setup video decoder
         decoder = in_container.decode(video=0)
 
         # wait for first frame / publisher
@@ -155,6 +165,8 @@ def relay_once() -> None:
             options={"rtsp_transport": "tcp"},
             timeout=(5.0, 1.0),
         )
+
+        # Add video stream
         out_stream: VideoStream = out_container.add_stream(  # pyright: ignore[reportUnknownMemberType]
             "libx264", rate=FPS, options={"preset": "veryfast", "tune": "zerolatency"}
         )
@@ -162,16 +174,54 @@ def relay_once() -> None:
         out_stream.height = h
         out_stream.pix_fmt = "yuv420p"
 
+        # Add audio stream if present in input
+        if audio_stream:
+            # Copy audio codec from input
+            codec_name = audio_stream.codec_context.name
+            audio_out = out_container.add_stream(codec_name, rate=audio_stream.rate)  # pyright: ignore[reportUnknownMemberType]
+            # Type check to ensure we have an AudioStream
+            if isinstance(audio_out, AudioStream):
+                out_audio_stream = audio_out
+                # Copy codec context parameters
+                out_audio_stream.codec_context.layout = (
+                    audio_stream.codec_context.layout
+                )
+                out_audio_stream.codec_context.sample_rate = (
+                    audio_stream.codec_context.sample_rate
+                )
+                logging.info(
+                    "Audio stream added to output: %s at %dHz with %d channels",
+                    codec_name,
+                    audio_stream.rate,
+                    audio_stream.codec_context.channels,
+                )
+
+        # Process first video frame
         blur_and_send(first, out_stream, out_container)
 
+        # Process both audio and video packets
         while not STOP_EVENT.is_set():
             try:
-                frame = next(decoder)
+                # Demux packets from input
+                for packet in in_container.demux():
+                    if STOP_EVENT.is_set():
+                        break
+
+                    if packet.stream.type == "video":
+                        # Decode video frames and process them
+                        frames = packet.decode()
+                        for frame in frames:
+                            if isinstance(frame, VideoFrame):
+                                blur_and_send(frame, out_stream, out_container)
+                    elif packet.stream.type == "audio" and out_audio_stream:
+                        # Remux audio packets directly without decoding
+                        packet.stream = out_audio_stream
+                        out_container.mux(packet)
+
             except TimeoutError:
                 continue
             except StopIteration:
                 break
-            blur_and_send(frame, out_stream, out_container)
 
         # Flush encoder
         for pkt in out_stream.encode():
