@@ -1,0 +1,53 @@
+from pathlib import Path
+import os
+
+
+BASE_DIR = Path(__file__).parent.parent
+
+IN_URL = os.getenv("FILTER_IN_URL", "rtmp://0.0.0.0:1935/live/stream")
+OUT_URL = os.getenv("FILTER_OUT_URL", "rtsp://127.0.0.1:8554/blurred")
+FPS = int(os.getenv("FILTER_FPS", "30"))
+
+FACE_BLUR_KERNEL = (51, 51)
+FACE_SCORE_THRESHOLD = float(os.getenv("FACE_SCORE_THRESHOLD", "0.7"))
+FACE_NMS_THRESHOLD = float(os.getenv("FACE_NMS_THRESHOLD", "0.3"))
+FACE_TOP_K = int(os.getenv("FACE_TOP_K", "5000"))
+FACE_MIN_CONFIDENCE = float(os.getenv("FACE_MIN_CONFIDENCE", "0.5"))
+FACE_PADDING_RATIO = float(os.getenv("FACE_PADDING_RATIO", "0.1"))
+
+MODEL_PATH = BASE_DIR / "face_detection_yunet_2023mar.onnx"
+
+CONNECTION_TIMEOUT = (5.0, 1.0)
+
+VIDEO_CODEC = os.getenv("VIDEO_CODEC", "libx264")
+VIDEO_PRESET = os.getenv("VIDEO_PRESET", "veryfast")
+VIDEO_TUNE = os.getenv("VIDEO_TUNE", "zerolatency")
+VIDEO_PIX_FMT = os.getenv("VIDEO_PIX_FMT", "yuv420p")
+
+RTSP_TRANSPORT = os.getenv("RTSP_TRANSPORT", "tcp")
+
+VIDEO_QUEUE_SIZE = int(os.getenv("VIDEO_QUEUE_SIZE", "30"))
+AUDIO_QUEUE_SIZE = int(os.getenv("AUDIO_QUEUE_SIZE", "100"))
+TRANSCRIPTION_QUEUE_SIZE = int(os.getenv("TRANSCRIPTION_QUEUE_SIZE", "10"))
+OUTPUT_QUEUE_SIZE = int(os.getenv("OUTPUT_QUEUE_SIZE", "30"))
+
+QUEUE_TIMEOUT = float(os.getenv("QUEUE_TIMEOUT", "0.1"))
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(threadName)s] %(message)s"
+
+THREAD_MONITOR_INTERVAL = float(os.getenv("THREAD_MONITOR_INTERVAL", "5.0"))
+THREAD_HEALTH_TIMEOUT = float(os.getenv("THREAD_HEALTH_TIMEOUT", "30.0"))
+
+ENABLE_METRICS = os.getenv("ENABLE_METRICS", "true").lower() == "true"
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8080"))
+
+ENABLE_TRANSCRIPTION = os.getenv("ENABLE_TRANSCRIPTION", "true").lower() == "true"
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small.en")
+
+cpu_threads_env = os.getenv("CPU_THREADS")
+if cpu_threads_env:
+    CPU_THREADS = int(cpu_threads_env)
+else:
+    cpu_count = os.cpu_count()
+    CPU_THREADS = max(4, cpu_count // 2) if cpu_count else 4
