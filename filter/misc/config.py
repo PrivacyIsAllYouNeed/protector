@@ -26,18 +26,18 @@ VIDEO_PIX_FMT = os.getenv("VIDEO_PIX_FMT", "yuv420p")
 
 RTSP_TRANSPORT = os.getenv("RTSP_TRANSPORT", "tcp")
 
-VIDEO_QUEUE_SIZE = int(os.getenv("VIDEO_QUEUE_SIZE", "30"))
-AUDIO_QUEUE_SIZE = int(os.getenv("AUDIO_QUEUE_SIZE", "100"))
-TRANSCRIPTION_QUEUE_SIZE = int(os.getenv("TRANSCRIPTION_QUEUE_SIZE", "10"))
-OUTPUT_QUEUE_SIZE = int(os.getenv("OUTPUT_QUEUE_SIZE", "30"))
+VIDEO_QUEUE_SIZE = int(os.getenv("VIDEO_QUEUE_SIZE", "60"))
+AUDIO_QUEUE_SIZE = int(os.getenv("AUDIO_QUEUE_SIZE", "200"))
+TRANSCRIPTION_QUEUE_SIZE = int(os.getenv("TRANSCRIPTION_QUEUE_SIZE", "20"))
+OUTPUT_QUEUE_SIZE = int(os.getenv("OUTPUT_QUEUE_SIZE", "60"))
 
 QUEUE_TIMEOUT = float(os.getenv("QUEUE_TIMEOUT", "0.1"))
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(threadName)s] %(message)s"
 
-THREAD_MONITOR_INTERVAL = float(os.getenv("THREAD_MONITOR_INTERVAL", "5.0"))
-THREAD_HEALTH_TIMEOUT = float(os.getenv("THREAD_HEALTH_TIMEOUT", "30.0"))
+THREAD_MONITOR_INTERVAL = float(os.getenv("THREAD_MONITOR_INTERVAL", "10.0"))
+THREAD_HEALTH_TIMEOUT = float(os.getenv("THREAD_HEALTH_TIMEOUT", "120.0"))
 
 ENABLE_METRICS = os.getenv("ENABLE_METRICS", "true").lower() == "true"
 METRICS_PORT = int(os.getenv("METRICS_PORT", "8080"))

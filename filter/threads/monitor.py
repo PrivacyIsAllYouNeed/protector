@@ -84,8 +84,8 @@ class HealthMonitorThread(BaseThread):
                 )
 
             dropped = queue.get_dropped_count()
-            if dropped > 0 and dropped % 1000 == 0:
-                self.logger.warning(
+            if dropped > 0 and dropped % 10000 == 0:
+                self.logger.info(
                     f"Queue {queue_name} has dropped {dropped} items total"
                 )
 

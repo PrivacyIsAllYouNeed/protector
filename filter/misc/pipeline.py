@@ -137,11 +137,11 @@ class Pipeline:
             while not is_shutting_down():
                 time.sleep(1)
 
-                if not self.state_manager.all_healthy(timeout_seconds=60.0):
+                if not self.state_manager.all_healthy(timeout_seconds=120.0):
                     unhealthy = [
                         name
                         for name in self.state_manager.get_all_states()
-                        if not self.state_manager.is_healthy(name, 60.0)
+                        if not self.state_manager.is_healthy(name, 120.0)
                     ]
                     if unhealthy:
                         logger.warning(f"Unhealthy threads detected: {unhealthy}")

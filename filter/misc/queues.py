@@ -40,7 +40,7 @@ class BoundedQueue(Generic[T]):
             except queue.Full:
                 with self._lock:
                     self._dropped_count += 1
-                if self._dropped_count % 100 == 1:
+                if self._dropped_count % 1000 == 1:
                     logger.warning(
                         f"Queue {self.name} dropped {self._dropped_count} items (newest)"
                     )
@@ -56,7 +56,7 @@ class BoundedQueue(Generic[T]):
                         self._queue.get_nowait()
                         self._dropped_count += 1
                         self._queue.put_nowait(item)
-                        if self._dropped_count % 100 == 1:
+                        if self._dropped_count == 1 or self._dropped_count % 1000 == 0:
                             logger.warning(
                                 f"Queue {self.name} dropped {self._dropped_count} items (oldest)"
                             )
