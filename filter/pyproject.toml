@@ -15,6 +15,9 @@ dependencies = [
     "opencv-contrib-python-headless>=4.11.0.86",
     "pyrtmp>=0.3.1",
     "silero-vad>=5.1.2",
+    "soundfile>=0.13.1",
+    "torch>=2.7.1",
+    "torchaudio>=2.7.1",
     "uvloop>=0.21.0",
 ]
 
