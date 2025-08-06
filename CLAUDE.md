@@ -30,8 +30,8 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 **Architecture:**
 ```
 filter/
-├── main.py              # Entry point
-├── misc/                # Core infrastructure
+├── main.py              # Entry point (minimal)
+├── misc/                # Core infrastructure & shared components
 │   ├── pipeline.py      # Pipeline orchestrator
 │   ├── config.py        # Configuration with env vars
 │   ├── types.py         # Shared data types
@@ -39,18 +39,16 @@ filter/
 │   ├── state.py         # Connection/thread state management
 │   ├── metrics.py       # Performance metrics
 │   ├── logging.py       # Structured logging
-│   └── shutdown.py      # Signal handling
-├── threads/             # Thread implementations
-│   ├── base.py          # Abstract base thread
-│   ├── input.py         # RTMP demuxer thread
-│   ├── video.py         # Face detection thread
-│   ├── audio.py         # Audio transcoding thread
-│   ├── transcription.py # VAD + Whisper thread
-│   ├── output.py        # RTSP muxer thread
-│   └── monitor.py       # Health monitoring thread
-├── face_detector.py     # YuNet face detection
-├── audio_handler.py     # Legacy audio handler
-└── transcription.py     # Legacy transcription
+│   ├── shutdown.py      # Signal handling
+│   └── face_detector.py # YuNet face detection module
+└── threads/             # Thread implementations
+    ├── base.py          # Abstract base thread
+    ├── input.py         # RTMP demuxer thread
+    ├── video.py         # Face detection thread
+    ├── audio.py         # Audio transcoding thread
+    ├── transcription.py # VAD + Whisper thread
+    ├── output.py        # RTSP muxer thread
+    └── monitor.py       # Health monitoring thread
 ```
 
 **Threading Model:**
