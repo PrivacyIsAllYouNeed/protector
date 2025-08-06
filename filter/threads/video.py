@@ -1,6 +1,6 @@
 from typing import Optional
 from threads.base import BaseThread
-from misc.state import ThreadStateManager
+from misc.state import ThreadStateManager, ConnectionState
 from misc.types import VideoData, ProcessedVideoData
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT
@@ -11,12 +11,14 @@ class VideoProcessingThread(BaseThread):
     def __init__(
         self,
         state_manager: ThreadStateManager,
+        connection_state: ConnectionState,
         input_queue: BoundedQueue[VideoData],
         output_queue: BoundedQueue[ProcessedVideoData],
     ):
         super().__init__(
             name="VideoProcessor", state_manager=state_manager, heartbeat_interval=1.0
         )
+        self.connection_state = connection_state
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.face_detector: Optional[FaceDetector] = None
@@ -27,6 +29,10 @@ class VideoProcessingThread(BaseThread):
         self.logger.info("Video processing thread initialized with face detector")
 
     def process_iteration(self) -> bool:
+        # Don't process if input is not connected
+        if not self.connection_state.is_input_connected():
+            return False
+
         video_data = self.input_queue.get(timeout=QUEUE_TIMEOUT)
 
         if video_data is None:

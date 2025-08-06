@@ -7,7 +7,7 @@ from av.audio.frame import AudioFrame
 from faster_whisper import WhisperModel
 from silero_vad import load_silero_vad
 from threads.base import BaseThread
-from misc.state import ThreadStateManager
+from misc.state import ThreadStateManager, ConnectionState
 from misc.types import AudioData, TranscriptionData
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT, CPU_THREADS, WHISPER_MODEL
@@ -17,6 +17,7 @@ class TranscriptionThread(BaseThread):
     def __init__(
         self,
         state_manager: ThreadStateManager,
+        connection_state: ConnectionState,
         input_queue: BoundedQueue[AudioData],
         start_speech_prob: float = 0.1,
         keep_speech_prob: float = 0.5,
@@ -28,6 +29,7 @@ class TranscriptionThread(BaseThread):
         super().__init__(
             name="Transcription", state_manager=state_manager, heartbeat_interval=2.0
         )
+        self.connection_state = connection_state
         self.input_queue = input_queue
         self.sampling_rate = sampling_rate
         self.chunk_size = chunk_size
@@ -77,6 +79,16 @@ class TranscriptionThread(BaseThread):
         )
 
     def process_iteration(self) -> bool:
+        # Don't process if input is not connected
+        if not self.connection_state.is_input_connected():
+            # Clear buffers when disconnected
+            if self.speech_buffer or self.ring_buffer:
+                self.speech_buffer.clear()
+                self.ring_buffer.clear()
+                self.in_speech = False
+                self.silence_samples = 0
+            return False
+
         if self._process_transcription_queue():
             return True
 

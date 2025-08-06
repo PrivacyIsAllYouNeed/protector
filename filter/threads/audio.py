@@ -3,7 +3,7 @@ from av.audio.frame import AudioFrame
 from av.audio.resampler import AudioResampler
 from typing import Optional
 from threads.base import BaseThread
-from misc.state import ThreadStateManager
+from misc.state import ThreadStateManager, ConnectionState
 from misc.types import AudioData, ProcessedAudioData
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT
@@ -13,12 +13,14 @@ class AudioProcessingThread(BaseThread):
     def __init__(
         self,
         state_manager: ThreadStateManager,
+        connection_state: ConnectionState,
         input_queue: BoundedQueue[AudioData],
         output_queue: BoundedQueue[ProcessedAudioData],
     ):
         super().__init__(
             name="AudioProcessor", state_manager=state_manager, heartbeat_interval=1.0
         )
+        self.connection_state = connection_state
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.resampler: Optional[AudioResampler] = None
@@ -30,6 +32,10 @@ class AudioProcessingThread(BaseThread):
         self.logger.info("Audio processing thread initialized")
 
     def process_iteration(self) -> bool:
+        # Don't process if input is not connected
+        if not self.connection_state.is_input_connected():
+            return False
+
         audio_data = self.input_queue.get(timeout=QUEUE_TIMEOUT)
 
         if audio_data is None:

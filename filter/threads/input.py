@@ -119,6 +119,13 @@ class InputThread(BaseThread):
         self.logger.info("Publisher disconnected")
         self.waiting_logged = False
 
+        # Clear all queues when input disconnects
+        self.logger.debug("Clearing queues after disconnect")
+        self.video_queue.clear()
+        self.audio_queue.clear()
+        if self.transcription_queue:
+            self.transcription_queue.clear()
+
     def _process_packets(self) -> bool:
         if not self.in_container:
             return False

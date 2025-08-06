@@ -74,18 +74,24 @@ class Pipeline:
         self.threads.append(self.input_thread)
 
         self.video_processor = VideoProcessingThread(
-            self.state_manager, self.video_input_queue, self.video_output_queue
+            self.state_manager,
+            self.connection_state,
+            self.video_input_queue,
+            self.video_output_queue,
         )
         self.threads.append(self.video_processor)
 
         self.audio_processor = AudioProcessingThread(
-            self.state_manager, self.audio_input_queue, self.audio_output_queue
+            self.state_manager,
+            self.connection_state,
+            self.audio_input_queue,
+            self.audio_output_queue,
         )
         self.threads.append(self.audio_processor)
 
         if ENABLE_TRANSCRIPTION and self.transcription_queue:
             self.transcription_thread = TranscriptionThread(
-                self.state_manager, self.transcription_queue
+                self.state_manager, self.connection_state, self.transcription_queue
             )
             self.threads.append(self.transcription_thread)
 

@@ -175,6 +175,14 @@ class OutputMuxerThread(BaseThread):
         self.resampler = None
         self.connection_state.set_output_connected(False)
 
+        # Clear output queues when disconnecting
+        self.logger.debug("Clearing output queues after disconnect")
+        self.video_queue.clear()
+        if self.audio_queue:
+            self.audio_queue.clear()
+        if self.audio_processed_queue:
+            self.audio_processed_queue.clear()
+
         self.logger.info(
             f"Output disconnected - wrote {self.frames_written} frames, "
             f"{self.audio_packets_written} audio packets"
