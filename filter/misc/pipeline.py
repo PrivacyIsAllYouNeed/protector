@@ -93,7 +93,7 @@ class Pipeline:
             self.state_manager,
             self.connection_state,
             self.video_output_queue,
-            self.audio_input_queue,
+            None,  # No raw audio queue - using processed audio
             self.audio_output_queue,
         )
         self.threads.append(self.output_thread)

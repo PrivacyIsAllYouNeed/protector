@@ -89,6 +89,11 @@ class AudioProcessingThread(BaseThread):
             else:
                 frames_to_encode = [resampled]
 
+            # Preserve timing information on resampled frames
+            for frame in frames_to_encode:
+                frame.pts = audio_data.frame.pts
+                frame.time_base = audio_data.frame.time_base
+
         processed_packets = []
 
         if not self.codec_context_configured:

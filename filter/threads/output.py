@@ -26,7 +26,7 @@ class OutputMuxerThread(BaseThread):
         state_manager: ThreadStateManager,
         connection_state: ConnectionState,
         video_queue: BoundedQueue[ProcessedVideoData],
-        audio_queue: BoundedQueue[AudioData],
+        audio_queue: Optional[BoundedQueue[AudioData]],
         audio_processed_queue: Optional[BoundedQueue[ProcessedAudioData]] = None,
     ):
         super().__init__(
@@ -74,7 +74,7 @@ class OutputMuxerThread(BaseThread):
                 if audio_data:
                     self._process_processed_audio(audio_data)
                     processed = True
-            else:
+            elif self.audio_queue:
                 audio_data = self.audio_queue.get_nowait()
                 if audio_data:
                     self._process_raw_audio(audio_data)
