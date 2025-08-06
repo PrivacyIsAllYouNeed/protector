@@ -42,6 +42,14 @@ class TranscriptionData:
 
 
 @dataclass
+class SpeechSegment:
+    audio: np.ndarray
+    start_time: float
+    end_time: float
+    sample_rate: int
+
+
+@dataclass
 class ProcessedVideoData:
     frame: VideoFrame
     timestamp: float

@@ -7,15 +7,18 @@ from misc.types import (
     AudioData,
     ProcessedVideoData,
     ProcessedAudioData,
+    SpeechSegment,
     QueueStrategy,
 )
 from misc.queues import BoundedQueue
 from misc.config import (
     VIDEO_QUEUE_SIZE,
     AUDIO_QUEUE_SIZE,
-    TRANSCRIPTION_QUEUE_SIZE,
+    VAD_QUEUE_SIZE,
+    SPEECH_QUEUE_SIZE,
     OUTPUT_QUEUE_SIZE,
     ENABLE_TRANSCRIPTION,
+    WHISPER_THREADS,
 )
 from misc.logging import get_logger
 from misc.shutdown import get_shutdown_handler, is_shutting_down
@@ -23,7 +26,8 @@ from misc.metrics import get_metrics_collector
 from threads.input import InputThread
 from threads.video import VideoProcessingThread
 from threads.audio import AudioProcessingThread
-from threads.transcription import TranscriptionThread
+from threads.vad import VADThread
+from threads.speech_worker import SpeechWorkerThread
 from threads.output import OutputMuxerThread
 from threads.monitor import HealthMonitorThread
 
@@ -46,10 +50,15 @@ class Pipeline:
             AUDIO_QUEUE_SIZE, QueueStrategy.DROP_OLDEST, "audio_input"
         )
 
-        self.transcription_queue: Optional[BoundedQueue[AudioData]] = None
+        self.vad_queue: Optional[BoundedQueue[AudioData]] = None
+        self.speech_queue: Optional[BoundedQueue[SpeechSegment]] = None
+
         if ENABLE_TRANSCRIPTION:
-            self.transcription_queue = BoundedQueue(
-                TRANSCRIPTION_QUEUE_SIZE, QueueStrategy.DROP_NEWEST, "transcription"
+            self.vad_queue = BoundedQueue(
+                VAD_QUEUE_SIZE, QueueStrategy.DROP_NEWEST, "vad"
+            )
+            self.speech_queue = BoundedQueue(
+                SPEECH_QUEUE_SIZE, QueueStrategy.DROP_OLDEST, "speech"
             )
 
         self.video_output_queue: BoundedQueue[ProcessedVideoData] = BoundedQueue(
@@ -69,7 +78,7 @@ class Pipeline:
             self.connection_state,
             self.video_input_queue,
             self.audio_input_queue,
-            self.transcription_queue,
+            self.vad_queue,
         )
         self.threads.append(self.input_thread)
 
@@ -89,11 +98,22 @@ class Pipeline:
         )
         self.threads.append(self.audio_processor)
 
-        if ENABLE_TRANSCRIPTION and self.transcription_queue:
-            self.transcription_thread = TranscriptionThread(
-                self.state_manager, self.connection_state, self.transcription_queue
+        if ENABLE_TRANSCRIPTION and self.vad_queue and self.speech_queue:
+            self.vad_thread = VADThread(
+                self.state_manager,
+                self.connection_state,
+                self.vad_queue,
+                self.speech_queue,
             )
-            self.threads.append(self.transcription_thread)
+            self.threads.append(self.vad_thread)
+
+            for i in range(WHISPER_THREADS):
+                speech_worker = SpeechWorkerThread(
+                    self.state_manager,
+                    self.speech_queue,
+                    worker_id=i,
+                )
+                self.threads.append(speech_worker)
 
         self.output_thread = OutputMuxerThread(
             self.state_manager,
@@ -111,8 +131,10 @@ class Pipeline:
             "audio_output": self.audio_output_queue,
         }
 
-        if self.transcription_queue:
-            queues["transcription"] = self.transcription_queue
+        if self.vad_queue:
+            queues["vad"] = self.vad_queue
+        if self.speech_queue:
+            queues["speech"] = self.speech_queue
 
         self.monitor_thread = HealthMonitorThread(self.state_manager, queues)
         self.threads.append(self.monitor_thread)
@@ -181,7 +203,9 @@ class Pipeline:
         self.video_output_queue.clear()
         self.audio_output_queue.clear()
 
-        if self.transcription_queue:
-            self.transcription_queue.clear()
+        if self.vad_queue:
+            self.vad_queue.clear()
+        if self.speech_queue:
+            self.speech_queue.clear()
 
         logger.info("Pipeline cleanup complete")

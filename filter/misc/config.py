@@ -29,7 +29,8 @@ RTSP_TRANSPORT = os.getenv("RTSP_TRANSPORT", "tcp")
 
 VIDEO_QUEUE_SIZE = int(os.getenv("VIDEO_QUEUE_SIZE", "60"))
 AUDIO_QUEUE_SIZE = int(os.getenv("AUDIO_QUEUE_SIZE", "200"))
-TRANSCRIPTION_QUEUE_SIZE = int(os.getenv("TRANSCRIPTION_QUEUE_SIZE", "20"))
+VAD_QUEUE_SIZE = int(os.getenv("VAD_QUEUE_SIZE", "20"))
+SPEECH_QUEUE_SIZE = int(os.getenv("SPEECH_QUEUE_SIZE", "20"))
 OUTPUT_QUEUE_SIZE = int(os.getenv("OUTPUT_QUEUE_SIZE", "60"))
 
 QUEUE_TIMEOUT = float(os.getenv("QUEUE_TIMEOUT", "0.1"))
@@ -45,6 +46,7 @@ METRICS_PORT = int(os.getenv("METRICS_PORT", "8080"))
 
 ENABLE_TRANSCRIPTION = os.getenv("ENABLE_TRANSCRIPTION", "true").lower() == "true"
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small.en")
+WHISPER_THREADS = int(os.getenv("WHISPER_THREADS", "1"))
 
 DISABLE_VIDEO_PROCESSING = (
     os.getenv("DISABLE_VIDEO_PROCESSING", "false").lower() == "true"

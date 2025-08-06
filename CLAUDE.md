@@ -19,7 +19,7 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 **Features:**
 - Receives RTMP input streams with video and audio
 - Detects and blurs faces using YuNet neural network
-- Real-time speech transcription using Silero VAD + faster-whisper
+- Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption
 - Multi-threaded architecture with queue-based communication
@@ -44,7 +44,8 @@ filter/
     ├── input.py         # RTMP demuxer thread
     ├── video.py         # Face detection thread
     ├── audio.py         # Audio transcoding thread
-    ├── transcription.py # VAD + Whisper thread
+    ├── vad.py           # Real-time VAD processing thread
+    ├── speech_worker.py # Background Whisper transcription thread
     ├── output.py        # RTSP muxer thread
     └── monitor.py       # Health monitoring thread
 ```
@@ -53,9 +54,17 @@ filter/
 - **Input Thread**: Demuxes RTMP stream into video/audio queues
 - **Video Thread**: Processes frames with face detection/blurring
 - **Audio Thread**: Transcodes audio to Opus for WebRTC
-- **Transcription Thread**: VAD + speech-to-text processing
+- **VAD Thread**: Real-time Voice Activity Detection (non-blocking)
+- **Speech Worker Thread(s)**: Background Whisper transcription (can block)
 - **Output Thread**: Muxes processed streams to RTSP
 - **Monitor Thread**: Health monitoring and metrics collection
+
+**Transcription Architecture:**
+The transcription system uses a non-blocking architecture to prevent real-time degradation:
+- VAD Thread continuously processes audio in real-time, detecting speech boundaries
+- When speech ends, complete segments are queued for transcription
+- Speech Worker Thread(s) consume segments and run Whisper inference in the background
+- This separation ensures VAD never waits for transcription, maintaining real-time performance
 
 Run these commands before committing changes:
 

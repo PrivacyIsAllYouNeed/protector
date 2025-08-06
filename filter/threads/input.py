@@ -19,7 +19,7 @@ class InputThread(BaseThread):
         connection_state: ConnectionState,
         video_queue: BoundedQueue[VideoData],
         audio_queue: BoundedQueue[AudioData],
-        transcription_queue: Optional[BoundedQueue[AudioData]] = None,
+        vad_queue: Optional[BoundedQueue[AudioData]] = None,
     ):
         super().__init__(
             name="InputDemuxer", state_manager=state_manager, heartbeat_interval=1.0
@@ -27,7 +27,7 @@ class InputThread(BaseThread):
         self.connection_state = connection_state
         self.video_queue = video_queue
         self.audio_queue = audio_queue
-        self.transcription_queue = transcription_queue
+        self.vad_queue = vad_queue
         self.in_container: Optional[InputContainer] = None
         self.has_audio = False
         self.has_video = False
@@ -123,8 +123,8 @@ class InputThread(BaseThread):
         self.logger.debug("Clearing queues after disconnect")
         self.video_queue.clear()
         self.audio_queue.clear()
-        if self.transcription_queue:
-            self.transcription_queue.clear()
+        if self.vad_queue:
+            self.vad_queue.clear()
 
     def _process_packets(self) -> bool:
         if not self.in_container:
@@ -182,8 +182,8 @@ class InputThread(BaseThread):
 
         self.audio_queue.put(audio_data, timeout=0.001)
 
-        if ENABLE_TRANSCRIPTION and self.transcription_queue:
-            self.transcription_queue.put(audio_data, timeout=0.001)
+        if ENABLE_TRANSCRIPTION and self.vad_queue:
+            self.vad_queue.put(audio_data, timeout=0.001)
 
         self.audio_sequence += 1
 

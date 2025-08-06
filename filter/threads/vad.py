@@ -1,24 +1,23 @@
-import queue
 import numpy as np
 import torch
 from typing import Optional, List
 from av.audio.resampler import AudioResampler
 from av.audio.frame import AudioFrame
-from faster_whisper import WhisperModel
 from silero_vad import load_silero_vad
 from threads.base import BaseThread
 from misc.state import ThreadStateManager, ConnectionState
-from misc.types import AudioData, TranscriptionData
+from misc.types import AudioData, SpeechSegment
 from misc.queues import BoundedQueue
-from misc.config import QUEUE_TIMEOUT, CPU_THREADS, WHISPER_MODEL
+from misc.config import QUEUE_TIMEOUT, CPU_THREADS
 
 
-class TranscriptionThread(BaseThread):
+class VADThread(BaseThread):
     def __init__(
         self,
         state_manager: ThreadStateManager,
         connection_state: ConnectionState,
         input_queue: BoundedQueue[AudioData],
+        output_queue: BoundedQueue[SpeechSegment],
         start_speech_prob: float = 0.1,
         keep_speech_prob: float = 0.5,
         stop_silence_ms: int = 500,
@@ -27,10 +26,11 @@ class TranscriptionThread(BaseThread):
         chunk_size: int = 512,
     ):
         super().__init__(
-            name="Transcription", state_manager=state_manager, heartbeat_interval=2.0
+            name="VAD", state_manager=state_manager, heartbeat_interval=1.0
         )
         self.connection_state = connection_state
         self.input_queue = input_queue
+        self.output_queue = output_queue
         self.sampling_rate = sampling_rate
         self.chunk_size = chunk_size
         self.chunk_bytes = chunk_size * 2
@@ -40,7 +40,6 @@ class TranscriptionThread(BaseThread):
         self.min_segment_samples = sampling_rate * min_segment_ms // 1000
 
         self.vad: Optional[torch.nn.Module] = None
-        self.asr: Optional[WhisperModel] = None
         self.resampler: Optional[AudioResampler] = None
 
         self.ring_buffer = bytearray()
@@ -49,12 +48,7 @@ class TranscriptionThread(BaseThread):
         self.silence_samples = 0
         self.stream_time_offset = 0.0
         self.speech_start_time = 0.0
-
-        # Bounded queue to prevent memory growth
-        self.transcription_queue: queue.Queue[Optional[TranscriptionData]] = (
-            queue.Queue(maxsize=10)
-        )
-        self.transcriptions_completed = 0
+        self.segments_produced = 0
 
     def setup(self):
         self.logger.info("Loading Silero VAD model...")
@@ -63,34 +57,21 @@ class TranscriptionThread(BaseThread):
         if isinstance(vad_model, torch.nn.Module):
             self.vad = vad_model
 
-        self.logger.info(f"Loading Whisper model: {WHISPER_MODEL}")
-        self.asr = WhisperModel(
-            model_size_or_path=WHISPER_MODEL,
-            device="cpu",
-            compute_type="int8",
-            cpu_threads=CPU_THREADS,
-        )
-
         self.logger.info(
-            f"Transcription initialized (model={WHISPER_MODEL}, "
-            f"start_prob={self.start_speech_prob:.2f}, "
+            f"VAD initialized (start_prob={self.start_speech_prob:.2f}, "
             f"keep_prob={self.keep_speech_prob:.2f}, "
-            f"silence={self.stop_silence_samples}ms)"
+            f"silence={self.stop_silence_samples * 1000 // self.sampling_rate}ms, "
+            f"min_segment={self.min_segment_samples * 1000 // self.sampling_rate}ms)"
         )
 
     def process_iteration(self) -> bool:
-        # Don't process if input is not connected
         if not self.connection_state.is_input_connected():
-            # Clear buffers when disconnected
             if self.speech_buffer or self.ring_buffer:
                 self.speech_buffer.clear()
                 self.ring_buffer.clear()
                 self.in_speech = False
                 self.silence_samples = 0
             return False
-
-        if self._process_transcription_queue():
-            return True
 
         audio_data = self.input_queue.get(timeout=QUEUE_TIMEOUT)
 
@@ -166,9 +147,9 @@ class TranscriptionThread(BaseThread):
                 if self.silence_samples >= self.stop_silence_samples:
                     self.in_speech = False
                     self.logger.debug(
-                        f"Speech ended at {self.stream_time_offset:.2f}s, queueing for transcription..."
+                        f"Speech ended at {self.stream_time_offset:.2f}s, queuing segment..."
                     )
-                    self._queue_speech_for_transcription()
+                    self._queue_speech_segment()
                     self.speech_buffer.clear()
                     self.silence_samples = 0
         else:
@@ -181,7 +162,7 @@ class TranscriptionThread(BaseThread):
 
         self.stream_time_offset += self.chunk_size / self.sampling_rate
 
-    def _queue_speech_for_transcription(self):
+    def _queue_speech_segment(self):
         if not self.speech_buffer:
             return
 
@@ -195,63 +176,36 @@ class TranscriptionThread(BaseThread):
 
         audio_float = audio.astype(np.float32) / 32768.0
 
-        transcription_data = TranscriptionData(
+        segment = SpeechSegment(
             audio=audio_float,
             start_time=self.speech_start_time,
             end_time=self.stream_time_offset,
+            sample_rate=self.sampling_rate,
         )
 
         try:
-            self.transcription_queue.put_nowait(transcription_data)
-        except queue.Full:
-            self.logger.warning("Transcription queue full, dropping audio segment")
-
-    def _process_transcription_queue(self) -> bool:
-        if not self.asr:
-            return False
-
-        try:
-            transcription_data = self.transcription_queue.get_nowait()
-
-            if transcription_data is None:
-                return False
-
-            segments, _info = self.asr.transcribe(
-                transcription_data.audio, beam_size=5, language="en"
-            )
-
-            for segment in segments:
-                text = segment.text.strip()
-                if text:
-                    self.logger.info(f"[Transcription] {text}")
-
-            self.transcriptions_completed += 1
-            self.metrics.record_transcription()
-
-            return True
-
-        except queue.Empty:
-            return False
+            if not self.output_queue.put(segment, timeout=0.05):
+                self.logger.warning(
+                    "Speech queue full, dropping segment (backpressure)"
+                )
+            else:
+                self.segments_produced += 1
+                self.logger.debug(
+                    f"Queued speech segment #{self.segments_produced} "
+                    f"(duration={segment.end_time - segment.start_time:.2f}s)"
+                )
         except Exception as e:
-            self.logger.error(f"Error transcribing: {e}")
-            return False
+            self.logger.error(f"Error queuing speech segment: {e}")
 
     def cleanup(self):
         if self.speech_buffer:
-            self._queue_speech_for_transcription()
-
-        while not self.transcription_queue.empty():
-            try:
-                self._process_transcription_queue()
-            except Exception:
-                break
+            self._queue_speech_segment()
 
         self.logger.info(
-            f"Transcription cleanup - completed {self.transcriptions_completed} transcriptions"
+            f"VAD cleanup - produced {self.segments_produced} speech segments"
         )
 
         self.ring_buffer.clear()
         self.speech_buffer.clear()
         self.vad = None
-        self.asr = None
         self.resampler = None
