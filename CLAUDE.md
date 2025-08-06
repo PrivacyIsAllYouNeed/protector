@@ -16,7 +16,7 @@ Impl plan available at: `./tmp/project.md`
 
 ### 1. Privacy Filter (`./filter/`)
 
-Real-time video processing pipeline with face anonymization and transcription:
+High-performance multi-threaded video processing pipeline with face anonymization and transcription:
 
 **Features:**
 - Receives RTMP input streams with video and audio
@@ -24,21 +24,49 @@ Real-time video processing pipeline with face anonymization and transcription:
 - Real-time speech transcription using Silero VAD + faster-whisper
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption
+- Multi-threaded architecture with queue-based communication
+- Graceful shutdown and comprehensive health monitoring
 
-**Main File Structure:**
+**Architecture:**
 ```
 filter/
-├── main.py           # Main relay loop and stream orchestration
-├── face_detector.py  # Face detection and blurring using YuNet
-├── audio_handler.py  # Audio stream detection and remuxing
-├── transcription.py  # Real-time speech-to-text
-└── config.py         # Configuration constants (URLs, codecs, etc.)
+├── main.py              # Entry point
+├── misc/                # Core infrastructure
+│   ├── pipeline.py      # Pipeline orchestrator
+│   ├── config.py        # Configuration with env vars
+│   ├── types.py         # Shared data types
+│   ├── queues.py        # Bounded queues with backpressure
+│   ├── state.py         # Connection/thread state management
+│   ├── metrics.py       # Performance metrics
+│   ├── logging.py       # Structured logging
+│   └── shutdown.py      # Signal handling
+├── threads/             # Thread implementations
+│   ├── base.py          # Abstract base thread
+│   ├── input.py         # RTMP demuxer thread
+│   ├── video.py         # Face detection thread
+│   ├── audio.py         # Audio transcoding thread
+│   ├── transcription.py # VAD + Whisper thread
+│   ├── output.py        # RTSP muxer thread
+│   └── monitor.py       # Health monitoring thread
+├── face_detector.py     # YuNet face detection
+├── audio_handler.py     # Legacy audio handler
+└── transcription.py     # Legacy transcription
 ```
 
-**Transcription Pipeline:**
-- Voice Activity Detection (VAD) segments speech in real-time
-- Transcribes utterances after X ms silence
-- Outputs timestamped text to stdout
+**Threading Model:**
+- **Input Thread**: Demuxes RTMP stream into video/audio queues
+- **Video Thread**: Processes frames with face detection/blurring
+- **Audio Thread**: Transcodes audio to Opus for WebRTC
+- **Transcription Thread**: VAD + speech-to-text processing
+- **Output Thread**: Muxes processed streams to RTSP
+- **Monitor Thread**: Health monitoring and metrics collection
+
+**Configuration (Environment Variables):**
+- `FILTER_IN_URL`: Input RTMP URL (default: rtmp://0.0.0.0:1935/live/stream)
+- `FILTER_OUT_URL`: Output RTSP URL (default: rtsp://127.0.0.1:8554/blurred)
+- `ENABLE_TRANSCRIPTION`: Enable/disable transcription (default: true)
+- `CPU_THREADS`: Number of CPU threads for processing
+- `LOG_LEVEL`: Logging level (INFO/DEBUG/WARNING/ERROR)
 
 Run these commands before committing changes:
 
