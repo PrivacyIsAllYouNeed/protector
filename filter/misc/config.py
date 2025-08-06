@@ -45,6 +45,10 @@ METRICS_PORT = int(os.getenv("METRICS_PORT", "8080"))
 ENABLE_TRANSCRIPTION = os.getenv("ENABLE_TRANSCRIPTION", "true").lower() == "true"
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small.en")
 
+DISABLE_VIDEO_PROCESSING = (
+    os.getenv("DISABLE_VIDEO_PROCESSING", "false").lower() == "true"
+)
+
 cpu_threads_env = os.getenv("CPU_THREADS")
 if cpu_threads_env:
     CPU_THREADS = int(cpu_threads_env)

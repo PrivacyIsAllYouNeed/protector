@@ -3,7 +3,7 @@ from threads.base import BaseThread
 from misc.state import ThreadStateManager, ConnectionState
 from misc.types import VideoData, ProcessedVideoData
 from misc.queues import BoundedQueue
-from misc.config import QUEUE_TIMEOUT
+from misc.config import QUEUE_TIMEOUT, DISABLE_VIDEO_PROCESSING
 from misc.face_detector import FaceDetector
 
 
@@ -25,8 +25,13 @@ class VideoProcessingThread(BaseThread):
         self.frames_processed = 0
 
     def setup(self):
-        self.face_detector = FaceDetector()
-        self.logger.info("Video processing thread initialized with face detector")
+        if not DISABLE_VIDEO_PROCESSING:
+            self.face_detector = FaceDetector()
+            self.logger.info("Video processing thread initialized with face detector")
+        else:
+            self.logger.info(
+                "Video processing DISABLED - frames will pass through unmodified"
+            )
 
     def process_iteration(self) -> bool:
         # Don't process if input is not connected
@@ -57,6 +62,17 @@ class VideoProcessingThread(BaseThread):
             return False
 
     def _process_frame(self, video_data: VideoData) -> ProcessedVideoData:
+        if DISABLE_VIDEO_PROCESSING:
+            # Pass through original frame without processing
+            processed_video = ProcessedVideoData(
+                frame=video_data.frame,
+                timestamp=video_data.timestamp,
+                sequence=video_data.sequence,
+                faces_detected=0,
+            )
+            self.metrics.record_frame(0)
+            return processed_video
+
         if not self.face_detector:
             raise RuntimeError("Face detector not initialized")
 
