@@ -102,3 +102,7 @@ npm run build
 # Run linting
 npm run lint
 ```
+
+## Tips
+
+- You can use `uv run foo.py` to run a Python script
