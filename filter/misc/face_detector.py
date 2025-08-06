@@ -22,6 +22,33 @@ from misc.config import (
     FACE_CACHE_DURATION_MS,
 )
 
+# Maximum side length for detection (resize frames larger than this)
+# 640px provides good balance between speed and accuracy for web conferencing
+TARGET_MAX_SIDE = 640
+
+
+def _resize_for_detection(bgr: NDArray[Any]) -> tuple[NDArray[Any], float]:
+    """
+    Resize frame for faster detection if it exceeds TARGET_MAX_SIDE.
+
+    Args:
+        bgr: Input BGR image array
+
+    Returns:
+        Tuple of (resized image, scale factor)
+    """
+    h, w = bgr.shape[:2]
+    scale = 1.0
+
+    # Only resize if the image is larger than target
+    if max(h, w) > TARGET_MAX_SIDE:
+        scale = TARGET_MAX_SIDE / max(h, w)
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        bgr = cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    return bgr, scale
+
 
 class FaceDetector:
     """Face detector and blurring processor using YuNet."""
@@ -76,24 +103,40 @@ class FaceDetector:
             # Cache miss - need to run face detection
             self.cache_misses += 1
 
-            # Update detector input size only if frame dimensions changed
-            new_size = (w, h)
+            # Resize frame for faster detection if needed
+            bgr_small, scale = _resize_for_detection(bgr)
+            h_small, w_small = bgr_small.shape[:2]
+
+            # Log resize optimization info on first detection or size change
+            if scale != 1.0 and self.current_input_size != (w_small, h_small):
+                self.logger.debug(
+                    f"Resizing frame from {w}x{h} to {w_small}x{h_small} "
+                    f"(scale: {scale:.2f}) for faster detection"
+                )
+
+            # Update detector input size only if resized dimensions changed
+            new_size = (w_small, h_small)
             if self.current_input_size != new_size:
                 self.detector.setInputSize(new_size)
                 self.current_input_size = new_size
 
-            # Detect faces - returns tuple of (retval, faces)
+            # Detect faces on resized image - returns tuple of (retval, faces)
             # faces can be None (when no faces) or np.ndarray
-            _, faces_result = self.detector.detect(bgr)
+            _, faces_result = self.detector.detect(bgr_small)
 
             # Handle the union type properly
             faces: NDArray[np.float32] | None = faces_result
 
-            # Update cache
+            # Scale coordinates back to original size if we resized
+            if faces is not None and scale != 1.0:
+                # Scale back x, y, width, height (first 4 columns)
+                faces[:, :4] /= scale
+
+            # Update cache with original-scale coordinates
             if faces is None or len(faces) == 0:
                 self.cached_faces = []
             else:
-                # Store simplified face rectangles for reuse
+                # Store simplified face rectangles for reuse (at original scale)
                 self.cached_faces = self._extract_face_rectangles(faces, w, h)
 
             self.cache_timestamp = current_time_ms
