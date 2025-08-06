@@ -1,5 +1,17 @@
-"""
-Face detection and blurring module using YuNet.
+"""Optimized face detection and anonymization module for real-time video privacy.
+
+This module provides high-performance face detection using YuNet neural network
+with intelligent caching and frame resizing optimizations. Key features:
+
+- YuNet-based face detection with configurable confidence thresholds
+- Adaptive frame resizing for faster processing of high-resolution streams
+- Face detection caching to reduce CPU usage (configurable cache duration)
+- Gaussian blur anonymization with adjustable padding for natural appearance
+- Thread-safe singleton pattern for global detector instance
+- Comprehensive performance metrics and cache hit rate monitoring
+
+The detector automatically handles different input resolutions and maintains
+consistent detection quality while optimizing for real-time performance.
 """
 
 import threading
@@ -22,9 +34,10 @@ from misc.config import (
     FACE_CACHE_DURATION_MS,
 )
 
-# Maximum side length for detection (resize frames larger than this)
-# 640px provides good balance between speed and accuracy for web conferencing
-TARGET_MAX_SIDE = 640
+# Detection optimization constants
+TARGET_MAX_SIDE = 640  # Max side length for detection (balance speed/accuracy)
+DEFAULT_INPUT_SIZE = (320, 320)  # YuNet default input size
+STATS_LOG_INTERVAL_MS = 30000  # Log cache statistics every 30 seconds
 
 
 def _resize_for_detection(bgr: NDArray[Any]) -> tuple[NDArray[Any], float]:
@@ -54,14 +67,19 @@ class FaceDetector:
     """Face detector and blurring processor using YuNet."""
 
     def __init__(self) -> None:
-        """Initialize the YuNet face detector."""
+        """Initialize the YuNet face detector with caching and optimization."""
         self.logger = get_logger(__name__)
+        self._init_detector()
+        self._init_cache()
+        self._init_statistics()
 
+    def _init_detector(self) -> None:
+        """Initialize the YuNet face detection model."""
         # Type as Any since cv2.FaceDetectorYN is not fully typed
         self.detector: Any = cv2.FaceDetectorYN.create(
             model=str(MODEL_PATH),
             config="",
-            input_size=(320, 320),  # Default size, will be adjusted per frame
+            input_size=DEFAULT_INPUT_SIZE,  # Will be adjusted per frame
             score_threshold=FACE_SCORE_THRESHOLD,
             nms_threshold=FACE_NMS_THRESHOLD,
             top_k=FACE_TOP_K,
@@ -71,12 +89,14 @@ class FaceDetector:
         # Track current input size to avoid unnecessary updates
         self.current_input_size: tuple[int, int] | None = None
 
-        # Face detection caching for performance
+    def _init_cache(self) -> None:
+        """Initialize face detection caching system."""
         self.cached_faces: list[tuple[int, int, int, int]] | None = None
         self.cache_timestamp: float = 0
         self.cache_duration_ms: float = FACE_CACHE_DURATION_MS
 
-        # Cache statistics
+    def _init_statistics(self) -> None:
+        """Initialize performance monitoring statistics."""
         self.cache_hits: int = 0
         self.cache_misses: int = 0
         self.last_stats_log: float = 0
@@ -89,63 +109,97 @@ class FaceDetector:
             frame: Input video frame
 
         Returns:
-            VideoFrame with faces blurred
+            Tuple of (VideoFrame with faces blurred, number of faces blurred)
         """
         # Convert PyAV frame to NumPy array (BGR format)
         bgr = frame.to_ndarray(format="bgr24")
         h, w = bgr.shape[:2]
 
+        # Get face rectangles (from cache or fresh detection)
+        face_rectangles = self._get_face_rectangles(bgr, w, h)
+
+        # Log statistics periodically
+        self._log_statistics_if_needed()
+
+        # If no faces detected, return original frame
+        if not face_rectangles:
+            return frame, 0
+
+        # Apply blur to detected faces
+        bgr_blurred = self._apply_blur_to_faces(bgr, face_rectangles)
+
+        # Convert back to VideoFrame, preserving timing information
+        return self._create_output_frame(bgr_blurred, frame), len(face_rectangles)
+
+    def _get_face_rectangles(
+        self, bgr: NDArray[Any], width: int, height: int
+    ) -> list[tuple[int, int, int, int]]:
+        """Get face rectangles from cache or perform fresh detection."""
         current_time_ms = time.time() * 1000
         cache_age_ms = current_time_ms - self.cache_timestamp
 
-        # Check if we need to run face detection or can use cached results
-        if self.cached_faces is None or cache_age_ms > self.cache_duration_ms:
-            # Cache miss - need to run face detection
-            self.cache_misses += 1
-
-            # Resize frame for faster detection if needed
-            bgr_small, scale = _resize_for_detection(bgr)
-            h_small, w_small = bgr_small.shape[:2]
-
-            # Log resize optimization info on first detection or size change
-            if scale != 1.0 and self.current_input_size != (w_small, h_small):
-                self.logger.debug(
-                    f"Resizing frame from {w}x{h} to {w_small}x{h_small} "
-                    f"(scale: {scale:.2f}) for faster detection"
-                )
-
-            # Update detector input size only if resized dimensions changed
-            new_size = (w_small, h_small)
-            if self.current_input_size != new_size:
-                self.detector.setInputSize(new_size)
-                self.current_input_size = new_size
-
-            # Detect faces on resized image - returns tuple of (retval, faces)
-            # faces can be None (when no faces) or np.ndarray
-            _, faces_result = self.detector.detect(bgr_small)
-
-            # Handle the union type properly
-            faces: NDArray[np.float32] | None = faces_result
-
-            # Scale coordinates back to original size if we resized
-            if faces is not None and scale != 1.0:
-                # Scale back x, y, width, height (first 4 columns)
-                faces[:, :4] /= scale
-
-            # Update cache with original-scale coordinates
-            if faces is None or len(faces) == 0:
-                self.cached_faces = []
-            else:
-                # Store simplified face rectangles for reuse (at original scale)
-                self.cached_faces = self._extract_face_rectangles(faces, w, h)
-
-            self.cache_timestamp = current_time_ms
-        else:
-            # Cache hit - reusing cached face rectangles
+        # Check if cache is valid
+        if self._is_cache_valid(cache_age_ms):
             self.cache_hits += 1
+            return self.cached_faces or []
 
-        # Log cache statistics every 30 seconds
-        if current_time_ms - self.last_stats_log > 30000:
+        # Cache miss - perform face detection
+        self.cache_misses += 1
+        faces = self._detect_faces(bgr, width, height)
+
+        # Update cache
+        self.cached_faces = (
+            self._extract_face_rectangles(faces, width, height)
+            if faces is not None
+            else []
+        )
+        self.cache_timestamp = current_time_ms
+
+        return self.cached_faces
+
+    def _is_cache_valid(self, cache_age_ms: float) -> bool:
+        """Check if cached face detection results are still valid."""
+        return self.cached_faces is not None and cache_age_ms <= self.cache_duration_ms
+
+    def _detect_faces(
+        self, bgr: NDArray[Any], width: int, height: int
+    ) -> NDArray[np.float32] | None:
+        """Perform face detection on the given image."""
+        # Resize frame for faster detection if needed
+        bgr_small, scale = _resize_for_detection(bgr)
+        h_small, w_small = bgr_small.shape[:2]
+
+        # Log resize optimization info on first detection or size change
+        if scale != 1.0 and self.current_input_size != (w_small, h_small):
+            self.logger.debug(
+                f"Resizing frame from {width}x{height} to {w_small}x{h_small} "
+                f"(scale: {scale:.2f}) for faster detection"
+            )
+
+        # Update detector input size if dimensions changed
+        self._update_detector_size(w_small, h_small)
+
+        # Detect faces on resized image
+        _, faces_result = self.detector.detect(bgr_small)
+        faces: NDArray[np.float32] | None = faces_result
+
+        # Scale coordinates back to original size if we resized
+        if faces is not None and scale != 1.0:
+            faces[:, :4] /= scale
+
+        return faces
+
+    def _update_detector_size(self, width: int, height: int) -> None:
+        """Update detector input size if it has changed."""
+        new_size = (width, height)
+        if self.current_input_size != new_size:
+            self.detector.setInputSize(new_size)
+            self.current_input_size = new_size
+
+    def _log_statistics_if_needed(self) -> None:
+        """Log cache statistics periodically."""
+        current_time_ms = time.time() * 1000
+        if current_time_ms - self.last_stats_log > STATS_LOG_INTERVAL_MS:
             total = self.cache_hits + self.cache_misses
             if total > 0:
                 hit_rate = (self.cache_hits / total) * 100
@@ -155,66 +209,14 @@ class FaceDetector:
                 )
             self.last_stats_log = current_time_ms
 
-        # If no cached faces, return original frame
-        if not self.cached_faces:
-            return frame, 0
-
-        # Apply blur using cached face rectangles
-        bgr_with_blur = self._apply_cached_face_blur(bgr, self.cached_faces)
-        faces_blurred = len(self.cached_faces)
-
-        # Convert back to VideoFrame, preserving timing information
-        new_frame = VideoFrame.from_ndarray(bgr_with_blur, format="bgr24")
-        new_frame.pts = frame.pts
-        new_frame.time_base = frame.time_base
-        return new_frame, faces_blurred
-
-    def _apply_face_blur(
-        self, bgr: NDArray[Any], faces: NDArray[np.float32], width: int, height: int
-    ) -> tuple[NDArray[Any], int]:
-        """
-        Apply Gaussian blur to detected faces in the image.
-
-        Args:
-            bgr: BGR image array
-            faces: Array of detected faces
-            width: Image width
-            height: Image height
-
-        Returns:
-            Tuple of (Image with faces blurred, number of faces blurred)
-        """
-        faces_blurred = 0
-        for i in range(len(faces)):
-            face_row = faces[i]
-            x: float = float(face_row[0])
-            y: float = float(face_row[1])
-            face_w: float = float(face_row[2])
-            face_h: float = float(face_row[3])
-            score: float = float(face_row[4])
-
-            # Skip low confidence detections
-            if score < FACE_MIN_CONFIDENCE:
-                continue
-
-            # Calculate bounding box with padding
-            padding = int(min(face_w, face_h) * FACE_PADDING_RATIO)
-            x1 = int(max(0, x - padding))
-            y1 = int(max(0, y - padding))
-            x2 = int(min(width - 1, x + face_w + padding))
-            y2 = int(min(height - 1, y + face_h + padding))
-
-            # Extract ROI
-            roi = bgr[y1:y2, x1:x2]
-
-            # Apply Gaussian blur to ROI if it's not empty
-            if roi.size > 0:
-                roi_blurred = cv2.GaussianBlur(roi, FACE_BLUR_KERNEL, 0)
-                # Replace original ROI with blurred version
-                bgr[y1:y2, x1:x2] = roi_blurred
-                faces_blurred += 1
-
-        return bgr, faces_blurred
+    def _create_output_frame(
+        self, bgr: NDArray[Any], original_frame: VideoFrame
+    ) -> VideoFrame:
+        """Create output VideoFrame with preserved timing information."""
+        new_frame = VideoFrame.from_ndarray(bgr, format="bgr24")
+        new_frame.pts = original_frame.pts
+        new_frame.time_base = original_frame.time_base
+        return new_frame
 
     def _extract_face_rectangles(
         self, faces: NDArray[np.float32], width: int, height: int
@@ -223,7 +225,7 @@ class FaceDetector:
         Extract and validate face rectangles from detection results.
 
         Args:
-            faces: Array of detected faces
+            faces: Array of detected faces from YuNet
             width: Image width
             height: Image height
 
@@ -232,33 +234,40 @@ class FaceDetector:
         """
         rectangles = []
         for i in range(len(faces)):
-            face_row = faces[i]
-            x: float = float(face_row[0])
-            y: float = float(face_row[1])
-            face_w: float = float(face_row[2])
-            face_h: float = float(face_row[3])
-            score: float = float(face_row[4])
-
-            # Skip low confidence detections
-            if score < FACE_MIN_CONFIDENCE:
-                continue
-
-            # Calculate bounding box with padding
-            padding = int(min(face_w, face_h) * FACE_PADDING_RATIO)
-            x1 = int(max(0, x - padding))
-            y1 = int(max(0, y - padding))
-            x2 = int(min(width - 1, x + face_w + padding))
-            y2 = int(min(height - 1, y + face_h + padding))
-
-            rectangles.append((x1, y1, x2, y2))
-
+            rectangle = self._process_single_face(faces[i], width, height)
+            if rectangle:
+                rectangles.append(rectangle)
         return rectangles
 
-    def _apply_cached_face_blur(
+    def _process_single_face(
+        self, face_row: NDArray[np.float32], width: int, height: int
+    ) -> tuple[int, int, int, int] | None:
+        """Process a single face detection result into a padded rectangle."""
+        x, y, face_w, face_h, score = map(float, face_row[:5])
+
+        # Skip low confidence detections
+        if score < FACE_MIN_CONFIDENCE:
+            return None
+
+        # Calculate padded bounding box
+        return self._calculate_padded_bbox(x, y, face_w, face_h, width, height)
+
+    def _calculate_padded_bbox(
+        self, x: float, y: float, w: float, h: float, img_width: int, img_height: int
+    ) -> tuple[int, int, int, int]:
+        """Calculate padded bounding box coordinates with image boundary checks."""
+        padding = int(min(w, h) * FACE_PADDING_RATIO)
+        x1 = int(max(0, x - padding))
+        y1 = int(max(0, y - padding))
+        x2 = int(min(img_width - 1, x + w + padding))
+        y2 = int(min(img_height - 1, y + h + padding))
+        return (x1, y1, x2, y2)
+
+    def _apply_blur_to_faces(
         self, bgr: NDArray[Any], face_rectangles: list[tuple[int, int, int, int]]
     ) -> NDArray[Any]:
         """
-        Apply Gaussian blur to cached face rectangles.
+        Apply Gaussian blur to detected face regions.
 
         Args:
             bgr: BGR image array
@@ -268,16 +277,17 @@ class FaceDetector:
             Image with faces blurred
         """
         for x1, y1, x2, y2 in face_rectangles:
-            # Extract ROI
-            roi = bgr[y1:y2, x1:x2]
-
-            # Apply Gaussian blur to ROI if it's not empty
-            if roi.size > 0:
-                roi_blurred = cv2.GaussianBlur(roi, FACE_BLUR_KERNEL, 0)
-                # Replace original ROI with blurred version
-                bgr[y1:y2, x1:x2] = roi_blurred
-
+            self._blur_region(bgr, x1, y1, x2, y2)
         return bgr
+
+    def _blur_region(
+        self, bgr: NDArray[Any], x1: int, y1: int, x2: int, y2: int
+    ) -> None:
+        """Apply Gaussian blur to a specific region of the image."""
+        roi = bgr[y1:y2, x1:x2]
+        if roi.size > 0:
+            roi_blurred = cv2.GaussianBlur(roi, FACE_BLUR_KERNEL, 0)
+            bgr[y1:y2, x1:x2] = roi_blurred
 
 
 # Global face detector instance

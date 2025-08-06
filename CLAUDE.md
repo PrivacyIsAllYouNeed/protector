@@ -4,8 +4,6 @@
 
 This repository implements a privacy-preserving video processing system for smart glasses and similar applications. It provides real-time face anonymization with consent management, allowing developers to build applications without privacy concerns.
 
-Impl plan available at: `./tmp/project.md`
-
 ## Project Structure
 
 - `./filter/` - Real-time privacy filter implementation (Python)
@@ -58,13 +56,6 @@ filter/
 - **Transcription Thread**: VAD + speech-to-text processing
 - **Output Thread**: Muxes processed streams to RTSP
 - **Monitor Thread**: Health monitoring and metrics collection
-
-**Configuration (Environment Variables):**
-- `FILTER_IN_URL`: Input RTMP URL (default: rtmp://0.0.0.0:1935/live/stream)
-- `FILTER_OUT_URL`: Output RTSP URL (default: rtsp://127.0.0.1:8554/blurred)
-- `ENABLE_TRANSCRIPTION`: Enable/disable transcription (default: true)
-- `CPU_THREADS`: Number of CPU threads for processing
-- `LOG_LEVEL`: Logging level (INFO/DEBUG/WARNING/ERROR)
 
 Run these commands before committing changes:
 
