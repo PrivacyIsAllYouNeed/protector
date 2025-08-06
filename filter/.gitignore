@@ -2,3 +2,4 @@
 /*.wav
 /face_detection_yunet_2023mar.onnx
 /__pycache__/
+/tmp-data/

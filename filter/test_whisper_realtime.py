@@ -93,7 +93,7 @@ def flush(buf: List[np.ndarray],
 def main():
     ap = argparse.ArgumentParser(description="Sentence‑level VAD streamer with Whisper")
     ap.add_argument("wav", help="input .wav file to stream")
-    ap.add_argument("-o", "--outdir", default="chunks",
+    ap.add_argument("-o", "--outdir", default="tmp-data",
                     help="directory for chunk_XXXX.wav when --save-chunks is set")
     ap.add_argument("--save-chunks", action="store_true",
                     help="save each detected sentence as a WAV file (default: off)")
