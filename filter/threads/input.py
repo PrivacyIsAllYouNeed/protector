@@ -1,4 +1,5 @@
 import av
+import time
 from av.container import InputContainer
 from av.video.frame import VideoFrame
 from av.audio.frame import AudioFrame
@@ -33,6 +34,7 @@ class InputThread(BaseThread):
         self.frame_sequence = 0
         self.audio_sequence = 0
         self.stream_time = 0.0
+        self.waiting_logged = False
 
     def setup(self):
         self.logger.info(f"Starting input thread, listening on {IN_URL}")
@@ -40,7 +42,8 @@ class InputThread(BaseThread):
     def process_iteration(self) -> bool:
         if not self.in_container:
             if not self._connect():
-                return False
+                time.sleep(1.0)
+                return True
 
         try:
             return self._process_packets()
@@ -54,7 +57,10 @@ class InputThread(BaseThread):
 
     def _connect(self) -> bool:
         try:
-            self.logger.info("Waiting for RTMP publisher...")
+            if not self.waiting_logged:
+                self.logger.info("Waiting for RTMP publisher...")
+                self.waiting_logged = True
+
             self.in_container = av.open(
                 IN_URL, mode="r", options={"listen": "1"}, timeout=CONNECTION_TIMEOUT
             )
@@ -86,13 +92,19 @@ class InputThread(BaseThread):
             self.frame_sequence = 0
             self.audio_sequence = 0
             self.stream_time = 0.0
+            self.waiting_logged = False
 
             return True
 
         except TimeoutError:
             return False
-        except Exception as e:
+        except (FFmpegError, OSError) as e:
+            if "Immediate exit requested" in str(e):
+                return False
             self.logger.error(f"Connection error: {e}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected connection error: {e}")
             return False
 
     def _disconnect(self):
@@ -105,6 +117,7 @@ class InputThread(BaseThread):
 
         self.connection_state.set_input_connected(False)
         self.logger.info("Publisher disconnected")
+        self.waiting_logged = False
 
     def _process_packets(self) -> bool:
         if not self.in_container:
