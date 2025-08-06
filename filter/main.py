@@ -138,12 +138,10 @@ def relay_once() -> None:
                                     frame, out_stream, out_container, face_detector
                                 )
                     elif packet.stream.type == "audio" and audio_handler.has_audio():
-                        # Remux the packet for output (preserves stream reference)
-                        audio_handler.remux_packet(packet, out_container)
+                        # Transcode the audio packet to Opus for WebRTC compatibility
+                        audio_handler.transcode_packet(packet, out_container)
 
-                        # Then decode for transcription if enabled
-                        # The decode_packet method uses input_stream.decode() which works
-                        # even after the packet.stream has been changed for remuxing
+                        # Decode for transcription if enabled (before transcoding)
                         if transcription_handler:
                             for audio_frame in audio_handler.decode_packet(packet):
                                 transcription_handler.process_audio_frame(audio_frame)
