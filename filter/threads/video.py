@@ -9,7 +9,7 @@ from misc.state import ThreadStateManager
 from misc.types import VideoData, ProcessedVideoData
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT
-from face_detector import FaceDetector
+from misc.face_detector import FaceDetector
 
 
 class VideoProcessingThread(BaseThread):
@@ -28,8 +28,6 @@ class VideoProcessingThread(BaseThread):
         self.frames_processed = 0
 
     def setup(self):
-        from face_detector import FaceDetector
-
         self.face_detector = FaceDetector()
         self.logger.info("Video processing thread initialized with face detector")
 
