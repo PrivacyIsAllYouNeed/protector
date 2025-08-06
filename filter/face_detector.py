@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 import cv2
 from av.video.frame import VideoFrame
 
-from config import (
+from misc.config import (
     MODEL_PATH,
     FACE_BLUR_KERNEL,
     FACE_SCORE_THRESHOLD,
