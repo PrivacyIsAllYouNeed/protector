@@ -9,25 +9,25 @@ Overview of how it works:
    - Maintains compatibility with main audio remuxing pipeline
 
 2. Audio Resampling:
-   - Automatically resamples any input audio format to 16kHz mono PCM
+   - Automatically resamples any input audio format to target sampling rate
    - Uses PyAV's AudioResampler for efficient format conversion
-   - 16kHz chosen as optimal for both VAD and speech recognition
+   - Converts to mono PCM format optimal for VAD and speech recognition
 
 3. Voice Activity Detection (VAD):
    - Uses Silero VAD model for robust speech detection
-   - Processes audio in 32ms chunks (512 samples at 16kHz)
-   - Returns speech state dictionary when speech is active
-   - Returns None after configured silence duration (400ms default)
+   - Processes audio in small chunks returning probability scores
+   - Tracks speech state using configurable probability thresholds
+   - Detects speech endpoints based on silence duration
 
 4. Speech Buffering:
    - Ring buffer accumulates incoming PCM audio data
    - Speech buffer collects audio chunks during active speech
-   - Automatically transcribes when VAD detects speech end
+   - Automatically queues segments for transcription when speech ends
 
 5. Speech-to-Text:
    - Uses faster-whisper for efficient CPU-based transcription
    - Runs with int8 quantization for optimal performance
-   - Processes complete speech segments from VAD
+   - Processes complete speech segments asynchronously
    - Returns timestamped transcription text
 
 6. Output:
@@ -58,7 +58,7 @@ class TranscriptionHandler:
         start_speech_prob: float = 0.1,
         keep_speech_prob: float = 0.5,
         stop_silence_ms: int = 500,
-        min_segment_ms: int = 500,
+        min_segment_ms: int = 300,
         sampling_rate: int = 16000,
         chunk_size: int = 512,
     ):
@@ -67,11 +67,11 @@ class TranscriptionHandler:
 
         Args:
             model_size: Whisper model size (e.g., "small.en", "medium.en")
-            start_speech_prob: Probability threshold to enter "speaking" state (0.1 default)
-            keep_speech_prob: Probability threshold to stay in "speaking" state (0.5 default)
-            stop_silence_ms: Silence duration to end speech segment (500ms default)
-            min_segment_ms: Minimum segment duration to transcribe (500ms default)
-            sampling_rate: Target sampling rate for transcription (16000 Hz)
+            start_speech_prob: Probability threshold to enter "speaking" state
+            keep_speech_prob: Probability threshold to stay in "speaking" state
+            stop_silence_ms: Silence duration to end speech segment
+            min_segment_ms: Minimum segment duration to transcribe
+            sampling_rate: Target sampling rate for transcription
             chunk_size: Size of audio chunks to feed to VAD (512 ≈ 32ms at 16kHz)
         """
         self.sampling_rate = sampling_rate

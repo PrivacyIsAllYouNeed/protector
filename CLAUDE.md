@@ -49,11 +49,8 @@ Run these commands before committing changes:
 # Type checking
 uv run basedpyright
 
-# Linting
-uv run ruff check --fix
-
-# Formatting
-uv run ruff format
+# Linting & Formatting
+uv run ruff check --fix && uv run ruff format
 ```
 
 ### 2. Control API (`./api/`)

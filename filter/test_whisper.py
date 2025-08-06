@@ -132,7 +132,7 @@ def transcribe_simple_no_vad(audio_file: str, model_size: str = "small.en"):
     logging.info(f"Reading audio file: {audio_file}")
     try:
         with wave.open(audio_file, "rb") as wav:
-            sample_rate = wav.getframerate()
+            _sample_rate = wav.getframerate()
             frames = wav.readframes(wav.getnframes())
             audio_data = np.frombuffer(frames, dtype=np.int16)
 

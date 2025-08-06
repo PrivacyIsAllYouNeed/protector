@@ -35,7 +35,7 @@ from faster_whisper import WhisperModel
 START_SPEECH_PROB = 0.1  # enter "speaking" state
 KEEP_SPEECH_PROB = 0.5  # stay in "speaking" state
 STOP_SILENCE_MS = 500  # pause that closes a segment (ms)
-MIN_SEGMENT_MS = 500  # ignore segments shorter than this (ms)
+MIN_SEGMENT_MS = 300  # ignore segments shorter than this (ms)
 # -------------------------------------------------------- #
 
 TARGET_SR = 16_000  # Silero VAD expects 16 kHz mono
