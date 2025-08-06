@@ -53,8 +53,9 @@ class TranscriptionThread(BaseThread):
         self.stream_time_offset = 0.0
         self.speech_start_time = 0.0
 
+        # Bounded queue to prevent memory growth
         self.transcription_queue: queue.Queue[Optional[TranscriptionData]] = (
-            queue.Queue()
+            queue.Queue(maxsize=10)
         )
         self.transcriptions_completed = 0
 

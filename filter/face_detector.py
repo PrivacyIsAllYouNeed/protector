@@ -2,6 +2,7 @@
 Face detection and blurring module using YuNet.
 """
 
+import threading
 from typing import Any
 import numpy as np
 from numpy.typing import NDArray
@@ -38,7 +39,7 @@ class FaceDetector:
         # Track current input size to avoid unnecessary updates
         self.current_input_size: tuple[int, int] | None = None
 
-    def blur_faces_in_frame(self, frame: VideoFrame) -> VideoFrame:
+    def blur_faces_in_frame(self, frame: VideoFrame) -> tuple[VideoFrame, int]:
         """
         Detect and blur faces in a VideoFrame.
 
@@ -67,20 +68,20 @@ class FaceDetector:
 
         # If no faces detected, return original frame
         if faces is None or len(faces) == 0:
-            return frame
+            return frame, 0
 
         # Apply blur to each detected face
-        bgr_with_blur = self._apply_face_blur(bgr, faces, w, h)
+        bgr_with_blur, faces_blurred = self._apply_face_blur(bgr, faces, w, h)
 
         # Convert back to VideoFrame, preserving timing information
         new_frame = VideoFrame.from_ndarray(bgr_with_blur, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
-        return new_frame
+        return new_frame, faces_blurred
 
     def _apply_face_blur(
         self, bgr: NDArray[Any], faces: NDArray[np.float32], width: int, height: int
-    ) -> NDArray[Any]:
+    ) -> tuple[NDArray[Any], int]:
         """
         Apply Gaussian blur to detected faces in the image.
 
@@ -91,8 +92,9 @@ class FaceDetector:
             height: Image height
 
         Returns:
-            Image with faces blurred
+            Tuple of (Image with faces blurred, number of faces blurred)
         """
+        faces_blurred = 0
         for i in range(len(faces)):
             face_row = faces[i]
             x: float = float(face_row[0])
@@ -120,22 +122,27 @@ class FaceDetector:
                 roi_blurred = cv2.GaussianBlur(roi, FACE_BLUR_KERNEL, 0)
                 # Replace original ROI with blurred version
                 bgr[y1:y2, x1:x2] = roi_blurred
+                faces_blurred += 1
 
-        return bgr
+        return bgr, faces_blurred
 
 
 # Global face detector instance
 _face_detector: FaceDetector | None = None
+_face_detector_lock = threading.Lock()
 
 
 def get_face_detector() -> FaceDetector:
     """
-    Get or create the global face detector instance.
+    Get or create the global face detector instance (thread-safe).
 
     Returns:
         FaceDetector instance
     """
     global _face_detector
     if _face_detector is None:
-        _face_detector = FaceDetector()
+        with _face_detector_lock:
+            # Double-check pattern for thread safety
+            if _face_detector is None:
+                _face_detector = FaceDetector()
     return _face_detector

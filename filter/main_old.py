@@ -50,7 +50,7 @@ def blur_and_send(
 ) -> None:
     """Process frame with face blur and send."""
     # Apply face detection and blurring
-    processed_frame = face_detector.blur_faces_in_frame(frame)
+    processed_frame, _faces_detected = face_detector.blur_faces_in_frame(frame)
 
     # Encode and send
     for pkt in out_stream.encode(processed_frame):

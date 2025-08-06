@@ -61,9 +61,9 @@ class VideoProcessingThread(BaseThread):
         if not self.face_detector:
             raise RuntimeError("Face detector not initialized")
 
-        processed_frame = self.face_detector.blur_faces_in_frame(video_data.frame)
-
-        faces_detected = 0
+        processed_frame, faces_detected = self.face_detector.blur_faces_in_frame(
+            video_data.frame
+        )
 
         processed_video = ProcessedVideoData(
             frame=processed_frame,

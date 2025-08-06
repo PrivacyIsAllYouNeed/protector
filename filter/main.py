@@ -11,7 +11,6 @@ from misc.pipeline import Pipeline
 
 
 def main():
-    setup_logging()
     logger = setup_logging()
 
     logger.info("=" * 60)
