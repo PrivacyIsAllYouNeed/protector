@@ -24,6 +24,7 @@ interface WHEPClientState {
   isConnecting: boolean;
   error: string | null;
   stats: VideoStats;
+  isMuted: boolean;
 }
 
 /**
@@ -51,7 +52,8 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
       resolution: { width: null, height: null },
       fps: null,
       framesDecoded: null
-    }
+    },
+    isMuted: true
   });
 
   // Handle connection state changes
@@ -78,6 +80,10 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
     console.log('Received track:', event.track.kind);
     if (videoRef.current && event.streams[0]) {
       videoRef.current.srcObject = event.streams[0];
+      // React workaround for muted attribute bug - use setAttribute
+      videoRef.current.setAttribute('muted', '');
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
     }
   }, []);
 
@@ -210,6 +216,45 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
     return cleanup;
   }, [startWHEPConnection, cleanup]);
 
+  // Effect to ensure muted attributes are set (React workaround)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      // Directly set the muted attribute on DOM to bypass React's bug
+      video.setAttribute('muted', '');
+      video.defaultMuted = true;
+      video.muted = true;
+      
+      // Try to play with muted state
+      video.play().catch(() => {
+        // Autoplay blocked, user interaction required
+      });
+    }
+  }, []);
+
+  // Handle unmute button click
+  const handleUnmute = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    try {
+      // Remove the muted attribute from DOM (React bug workaround)
+      video.removeAttribute('muted');
+      video.muted = false;
+      video.defaultMuted = false;
+      
+      await video.play();
+      setState(prev => ({ ...prev, isMuted: false }));
+      console.log('Video unmuted successfully');
+    } catch (error) {
+      console.error('Failed to unmute:', error);
+      // If unmute fails, try to keep video playing muted
+      video.setAttribute('muted', '');
+      video.muted = true;
+      video.play().catch(console.error);
+    }
+  }, []);
+
   // Retry connection function
   const retryConnection = useCallback(() => {
     cleanup();
@@ -218,12 +263,11 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
 
   return (
     <div className={`whep-client ${className}`}>
-      <div className="video-container">
+      <div className="video-container" style={{ position: 'relative' }}>
         <video
           ref={videoRef}
           autoPlay
           playsInline
-          muted
           className="whep-video"
           style={{
             width: '100%',
@@ -232,6 +276,40 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
             borderRadius: '8px'
           }}
         />
+        
+        {/* Unmute button */}
+        {state.isMuted && state.connectionState === 'connected' && (
+          <button
+            onClick={handleUnmute}
+            className="unmute-button"
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '24px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s',
+              zIndex: 10
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            }}
+          >
+            🔊 Tap to unmute
+          </button>
+        )}
         
         {/* Connection status overlay */}
         {(state.isConnecting || state.error) && (
