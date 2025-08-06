@@ -40,12 +40,13 @@ import os
 import logging
 import threading
 import queue
-from typing import Optional, Any, Tuple
+from typing import Optional, List, Tuple
 import numpy as np
 import torch
 from av.audio.resampler import AudioResampler
 from av.audio.frame import AudioFrame
 from faster_whisper import WhisperModel
+from silero_vad import load_silero_vad
 
 
 class TranscriptionHandler:
@@ -54,8 +55,10 @@ class TranscriptionHandler:
     def __init__(
         self,
         model_size: str = "small.en",
-        vad_threshold: float = 0.5,
-        min_silence_ms: int = 400,
+        start_speech_prob: float = 0.1,
+        keep_speech_prob: float = 0.5,
+        stop_silence_ms: int = 500,
+        min_segment_ms: int = 500,
         sampling_rate: int = 16000,
         chunk_size: int = 512,
     ):
@@ -64,14 +67,20 @@ class TranscriptionHandler:
 
         Args:
             model_size: Whisper model size (e.g., "small.en", "medium.en")
-            vad_threshold: VAD activation threshold (0.5-0.6 for noisy environments)
-            min_silence_ms: Minimum silence duration to end speech segment
+            start_speech_prob: Probability threshold to enter "speaking" state (0.1 default)
+            keep_speech_prob: Probability threshold to stay in "speaking" state (0.5 default)
+            stop_silence_ms: Silence duration to end speech segment (500ms default)
+            min_segment_ms: Minimum segment duration to transcribe (500ms default)
             sampling_rate: Target sampling rate for transcription (16000 Hz)
             chunk_size: Size of audio chunks to feed to VAD (512 ≈ 32ms at 16kHz)
         """
         self.sampling_rate = sampling_rate
         self.chunk_size = chunk_size
         self.chunk_bytes = chunk_size * 2  # int16 = 2 bytes per sample
+        self.start_speech_prob = start_speech_prob
+        self.keep_speech_prob = keep_speech_prob
+        self.stop_silence_samples = sampling_rate * stop_silence_ms // 1000
+        self.min_segment_samples = sampling_rate * min_segment_ms // 1000
 
         # CPU threads for processing
         cpu_count = os.cpu_count()
@@ -80,23 +89,7 @@ class TranscriptionHandler:
         # Initialize Silero VAD
         logging.info("Loading Silero VAD model...")
         torch.set_num_threads(n_threads)
-        vad_result: Tuple[Any, Tuple[Any, ...]] = torch.hub.load(  # type: ignore
-            repo_or_dir="snakers4/silero-vad",
-            model="silero_vad",
-            trust_repo=True,
-        )
-        vad_model = vad_result[0]
-        vad_utils = vad_result[1]
-        # Extract VAD utilities from tuple
-        # The tuple contains: (get_speech_timestamps, save_audio, read_audio, VADIterator, collect_chunks)
-        VADIterator = vad_utils[3]  # type: ignore
-
-        self.vad = VADIterator(
-            vad_model,
-            sampling_rate=sampling_rate,
-            threshold=vad_threshold,
-            min_silence_duration_ms=min_silence_ms,
-        )
+        self.vad = load_silero_vad()
 
         # Initialize faster-whisper
         logging.info(f"Loading Whisper model: {model_size}")
@@ -110,8 +103,9 @@ class TranscriptionHandler:
         # Audio resampler for converting to 16kHz mono
         self.resampler: Optional[AudioResampler] = None
         self.ring_buffer = bytearray()  # Accumulates raw int16 PCM
-        self.speech_buffer = bytearray()  # Accumulates speech audio in int16 PCM
-        self.is_speaking = False  # Track if currently in speech segment
+        self.speech_buffer: List[np.ndarray] = []  # List of frame chunks during speech
+        self.in_speech = False  # Track if currently in speech segment
+        self.silence_samples = 0  # Count of consecutive silence samples
         self.stream_time_offset = 0.0  # Track cumulative stream time in seconds
         self.speech_start_time = 0.0  # Track when current speech segment started
 
@@ -126,10 +120,11 @@ class TranscriptionHandler:
         self.transcription_thread.start()
 
         logging.info(
-            "Transcription handler initialized (model=%s, VAD threshold=%.2f, silence=%dms)",
+            "Transcription handler initialized (model=%s, start_prob=%.2f, keep_prob=%.2f, silence=%dms)",
             model_size,
-            vad_threshold,
-            min_silence_ms,
+            start_speech_prob,
+            keep_speech_prob,
+            stop_silence_ms,
         )
 
     def setup_resampler(
@@ -203,26 +198,38 @@ class TranscriptionHandler:
                 # Convert to torch tensor for VAD
                 chunk_tensor = torch.from_numpy(chunk_float)
 
-                # Process with VAD
-                speech_dict = self.vad(chunk_tensor)
+                # Get speech probability from VAD
+                prob = self.vad(chunk_tensor, self.sampling_rate).item()
 
-                # VAD returns dict with speech info or None when speech ends
-                if speech_dict is not None:
-                    # Speech detected - accumulate audio
-                    if not self.is_speaking:
-                        self.is_speaking = True
-                        self.speech_start_time = self.stream_time_offset
-                        logging.debug("Speech started at %.2fs", self.speech_start_time)
-                    self.speech_buffer.extend(chunk_bytes)
+                if self.in_speech:
+                    # Currently in speech - accumulate audio
+                    self.speech_buffer.append(chunk)
+
+                    if prob > self.keep_speech_prob:
+                        # Still speaking, reset silence counter
+                        self.silence_samples = 0
+                    else:
+                        # Silence detected, increment counter
+                        self.silence_samples += self.chunk_size
+
+                        # Check if enough silence to end speech segment
+                        if self.silence_samples >= self.stop_silence_samples:
+                            self.in_speech = False
+                            logging.debug(
+                                "Speech ended at %.2fs, queueing for transcription...",
+                                self.stream_time_offset,
+                            )
+                            self._queue_speech_for_transcription()
+                            self.speech_buffer.clear()
+                            self.silence_samples = 0
                 else:
-                    # Speech ended (silence detected)
-                    if self.is_speaking:
-                        self.is_speaking = False
-                        logging.debug(
-                            "Speech ended at %.2fs, queueing for transcription...",
-                            self.stream_time_offset,
-                        )
-                        self._queue_speech_for_transcription()
+                    # Not in speech - check if speech is starting
+                    if prob > self.start_speech_prob:
+                        self.in_speech = True
+                        self.speech_start_time = self.stream_time_offset
+                        self.speech_buffer.append(chunk)
+                        self.silence_samples = 0
+                        logging.debug("Speech started at %.2fs", self.speech_start_time)
 
                 # Update stream time offset (chunk_size samples at sampling_rate Hz)
                 self.stream_time_offset += self.chunk_size / self.sampling_rate
@@ -232,18 +239,23 @@ class TranscriptionHandler:
         if not self.speech_buffer:
             return
 
-        # Convert collected int16 PCM bytes to float32 array for Whisper
-        audio = np.frombuffer(self.speech_buffer, np.int16).astype(np.float32) / 32768.0
+        # Concatenate all chunks into a single array
+        audio = np.concatenate(self.speech_buffer, axis=0)
+
+        # Check minimum segment length
+        if len(audio) < self.min_segment_samples:
+            logging.debug("Speech segment too short (%d samples), skipping", len(audio))
+            return
+
+        # Convert to float32 for Whisper
+        audio_float = audio.astype(np.float32) / 32768.0
 
         # Store the start time for this speech segment
         segment_start_time = self.speech_start_time
 
-        # Clear the speech buffer for next segment
-        self.speech_buffer.clear()
-
         # Queue for async transcription with timing info (non-blocking)
         try:
-            self.transcription_queue.put_nowait((audio, segment_start_time))
+            self.transcription_queue.put_nowait((audio_float, segment_start_time))
         except queue.Full:
             logging.warning("Transcription queue full, dropping audio segment")
 
@@ -310,10 +322,10 @@ class TranscriptionHandler:
             chunk_float = chunk.astype(np.float32) / 32768.0
             chunk_tensor = torch.from_numpy(chunk_float)
 
-            # Process with VAD and accumulate if speech
-            speech_dict = self.vad(chunk_tensor)
-            if speech_dict is not None:
-                self.speech_buffer.extend(chunk_bytes)
+            # Process with VAD and accumulate if in speech
+            prob = self.vad(chunk_tensor, self.sampling_rate).item()
+            if self.in_speech and prob > self.keep_speech_prob:
+                self.speech_buffer.append(chunk)
 
         # Force transcribe any remaining speech
         if self.speech_buffer:
@@ -322,7 +334,8 @@ class TranscriptionHandler:
         # Clear buffers
         self.ring_buffer.clear()
         self.speech_buffer.clear()
-        self.is_speaking = False
+        self.in_speech = False
+        self.silence_samples = 0
 
         # Stop transcription thread gracefully
         self.stop_event.set()
@@ -357,8 +370,7 @@ class TranscriptionHandler:
             except queue.Empty:
                 break
 
-        # Reset VAD states and timing for next session
-        self.vad.reset_states()
+        # Reset timing for next session
         self.stream_time_offset = 0.0
         self.speech_start_time = 0.0
 

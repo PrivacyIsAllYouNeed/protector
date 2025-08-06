@@ -33,15 +33,15 @@ from faster_whisper import WhisperModel
 
 # ---------------------- Tunables ------------------------ #
 START_SPEECH_PROB = 0.1  # enter "speaking" state
-KEEP_SPEECH_PROB  = 0.5  # stay in "speaking" state
-STOP_SILENCE_MS   = 500  # pause that closes a segment (ms)
-MIN_SEGMENT_MS    = 500  # ignore segments shorter than this (ms)
+KEEP_SPEECH_PROB = 0.5  # stay in "speaking" state
+STOP_SILENCE_MS = 500  # pause that closes a segment (ms)
+MIN_SEGMENT_MS = 500  # ignore segments shorter than this (ms)
 # -------------------------------------------------------- #
 
-TARGET_SR = 16_000       # Silero VAD expects 16 kHz mono
-FRAME_LEN = 512          # 512 samples ≈ 32 ms @ 16 kHz
+TARGET_SR = 16_000  # Silero VAD expects 16 kHz mono
+FRAME_LEN = 512  # 512 samples ≈ 32 ms @ 16 kHz
 STOP_SILENCE_SAMPLES = TARGET_SR * STOP_SILENCE_MS // 1000
-MIN_SEGMENT_SAMPLES  = TARGET_SR * MIN_SEGMENT_MS // 1000
+MIN_SEGMENT_SAMPLES = TARGET_SR * MIN_SEGMENT_MS // 1000
 
 
 def resample(block: np.ndarray, orig_sr: int) -> np.ndarray:
@@ -55,11 +55,13 @@ def resample(block: np.ndarray, orig_sr: int) -> np.ndarray:
     return block.astype(np.float32)
 
 
-def flush(buf: List[np.ndarray],
-          index: int,
-          whisper: WhisperModel,
-          save_chunks: bool,
-          outdir: str) -> int:
+def flush(
+    buf: List[np.ndarray],
+    index: int,
+    whisper: WhisperModel,
+    save_chunks: bool,
+    outdir: str,
+) -> int:
     """Transcribe accumulated samples; optionally save. Return next index."""
     if not buf:
         return index
@@ -73,8 +75,11 @@ def flush(buf: List[np.ndarray],
     start_time = time.time()
     segments, _ = whisper.transcribe(audio, language="en", beam_size=5)
     transcribe_time = time.time() - start_time
-    print(f"[TIMING] whisper.transcribe took {transcribe_time:.3f}s for {audio_duration:.2f}s of audio (RTF: {transcribe_time/audio_duration:.2f}x)", flush=True)
-    
+    print(
+        f"[TIMING] whisper.transcribe took {transcribe_time:.3f}s for {audio_duration:.2f}s of audio (RTF: {transcribe_time / audio_duration:.2f}x)",
+        flush=True,
+    )
+
     for seg in segments:
         txt = seg.text.strip()
         if txt:
@@ -85,7 +90,7 @@ def flush(buf: List[np.ndarray],
         os.makedirs(outdir, exist_ok=True)
         path = os.path.join(outdir, f"chunk_{index:04d}.wav")
         sf.write(path, audio, TARGET_SR)
-        print(f"Saved {path}  ({len(audio)/TARGET_SR:.2f} s)", flush=True)
+        print(f"Saved {path}  ({len(audio) / TARGET_SR:.2f} s)", flush=True)
 
     return index + 1
 
@@ -93,19 +98,29 @@ def flush(buf: List[np.ndarray],
 def main():
     ap = argparse.ArgumentParser(description="Sentence‑level VAD streamer with Whisper")
     ap.add_argument("wav", help="input .wav file to stream")
-    ap.add_argument("-o", "--outdir", default="tmp-data",
-                    help="directory for chunk_XXXX.wav when --save-chunks is set")
-    ap.add_argument("--save-chunks", action="store_true",
-                    help="save each detected sentence as a WAV file (default: off)")
-    ap.add_argument("--device", default="cpu",
-                    help="device for Whisper (e.g., cpu, cuda, auto)")
+    ap.add_argument(
+        "-o",
+        "--outdir",
+        default="tmp-data",
+        help="directory for chunk_XXXX.wav when --save-chunks is set",
+    )
+    ap.add_argument(
+        "--save-chunks",
+        action="store_true",
+        help="save each detected sentence as a WAV file (default: off)",
+    )
+    ap.add_argument(
+        "--device", default="cpu", help="device for Whisper (e.g., cpu, cuda, auto)"
+    )
     ap.add_argument("--model", default="small.en", help="Whisper model size")
     ap.add_argument("--compute-type", default="int8", help="Whisper compute_type")
     args = ap.parse_args()
 
     # Load models
     vad = load_silero_vad()
-    whisper = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
+    whisper = WhisperModel(
+        args.model, device=args.device, compute_type=args.compute_type
+    )
 
     with sf.SoundFile(args.wav) as wav:
         native_block = math.ceil((FRAME_LEN * 2) * wav.samplerate / TARGET_SR)
@@ -121,7 +136,7 @@ def main():
             samples = block.squeeze()
 
             for pos in range(0, len(samples), FRAME_LEN):
-                frame = samples[pos:pos + FRAME_LEN]
+                frame = samples[pos : pos + FRAME_LEN]
                 if len(frame) < FRAME_LEN:
                     frame = np.pad(frame, (0, FRAME_LEN - len(frame)))
 
@@ -134,8 +149,9 @@ def main():
                     else:
                         silence += FRAME_LEN
                         if silence >= STOP_SILENCE_SAMPLES:
-                            chunk_idx = flush(buf, chunk_idx, whisper,
-                                              args.save_chunks, args.outdir)
+                            chunk_idx = flush(
+                                buf, chunk_idx, whisper, args.save_chunks, args.outdir
+                            )
                             buf.clear()
                             in_speech = False
                             silence = 0
