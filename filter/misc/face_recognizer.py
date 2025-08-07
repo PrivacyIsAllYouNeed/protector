@@ -29,7 +29,7 @@ class FaceRecognizer:
         self.logger.info("Face recognizer initialized with SFace model")
 
     def _init_database(self) -> None:
-        self.consented_faces: Dict[str, NDArray[np.float32]] = {}
+        self.consented_faces: Dict[str, list[NDArray[np.float32]]] = {}
         self.logger.info("Consented faces database initialized")
 
     def extract_feature(
@@ -41,21 +41,32 @@ class FaceRecognizer:
 
     def add_consented_face(self, name: str, feature: NDArray[np.float32]) -> None:
         with self._lock:
-            self.consented_faces[name] = feature
-            self.logger.info(f"Added consented face for: {name}")
+            if name not in self.consented_faces:
+                self.consented_faces[name] = []
+            self.consented_faces[name].append(feature)
+            self.logger.info(
+                f"Added consented face for: {name} (total: {len(self.consented_faces[name])})"
+            )
+
+    def remove_consented_face(self, name: str) -> None:
+        with self._lock:
+            if name in self.consented_faces:
+                del self.consented_faces[name]
+                self.logger.info(f"Removed all consent faces for: {name}")
 
     def match_face(self, feature: NDArray[np.float32]) -> Tuple[bool, Optional[str]]:
         with self._lock:
-            for name, known_feature in self.consented_faces.items():
-                cosine_score = self.recognizer.match(
-                    feature, known_feature, 0
-                )  # FR_COSINE = 0
-                l2_score = self.recognizer.match(
-                    feature, known_feature, 1
-                )  # FR_NORM_L2 = 1
+            for name, known_features in self.consented_faces.items():
+                for known_feature in known_features:
+                    cosine_score = self.recognizer.match(
+                        feature, known_feature, 0
+                    )  # FR_COSINE = 0
+                    l2_score = self.recognizer.match(
+                        feature, known_feature, 1
+                    )  # FR_NORM_L2 = 1
 
-                if cosine_score < COSINE_THRESHOLD or l2_score < L2_THRESHOLD:
-                    return True, name
+                    if cosine_score < COSINE_THRESHOLD or l2_score < L2_THRESHOLD:
+                        return True, name
 
             return False, None
 

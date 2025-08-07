@@ -23,6 +23,7 @@ from misc.config import (
 from misc.logging import get_logger
 from misc.shutdown import get_shutdown_handler, is_shutting_down
 from misc.metrics import get_metrics_collector
+from misc.consent_manager import get_consent_manager
 from threads.input import InputThread
 from threads.video import VideoProcessingThread
 from threads.audio import AudioProcessingThread
@@ -42,6 +43,7 @@ class Pipeline:
         self.consent_state = ConsentState()
         self.shutdown_handler = get_shutdown_handler()
         self.metrics = get_metrics_collector()
+        self.consent_manager = get_consent_manager(self.consent_state)
 
         self.video_input_queue: BoundedQueue[VideoData] = BoundedQueue(
             VIDEO_QUEUE_SIZE, QueueStrategy.DROP_OLDEST, "video_input"
@@ -147,6 +149,13 @@ class Pipeline:
     def start(self):
         logger.info("Starting pipeline...")
 
+        # Load existing consent files before starting threads
+        logger.info("Loading existing consent files...")
+        self.consent_manager.load_existing_consents()
+
+        # Start consent monitoring
+        self.consent_manager.start_monitoring()
+
         self.shutdown_handler.register_signal_handlers()
 
         for thread in self.threads:
@@ -180,6 +189,9 @@ class Pipeline:
         logger.info("Stopping pipeline...")
 
         self.shutdown_handler.initiate_shutdown()
+
+        # Stop consent monitoring
+        self.consent_manager.stop_monitoring()
 
         for thread in self.threads:
             if hasattr(thread, "stop") and callable(getattr(thread, "stop")):

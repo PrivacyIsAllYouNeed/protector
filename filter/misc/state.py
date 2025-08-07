@@ -16,6 +16,7 @@ class ConsentState:
         self.speaker_name: Optional[str] = None
         self.consent_timestamp: float = 0.0
         self.capture_next_frame: bool = False
+        self.consented_names: set[str] = set()  # Track all consented names
 
     def set_consent(self, name: Optional[str] = None):
         with self._lock:
@@ -23,6 +24,8 @@ class ConsentState:
             self.speaker_name = name
             self.consent_timestamp = time.time()
             self.capture_next_frame = True
+            if name:
+                self.consented_names.add(name)
             logger.info(f"Consent granted by: {name or 'unknown'}")
 
     def should_capture(self) -> bool:
@@ -39,6 +42,7 @@ class ConsentState:
                 "has_consent": self.has_consent,
                 "speaker_name": self.speaker_name,
                 "consent_timestamp": self.consent_timestamp,
+                "consented_names": list(self.consented_names),
             }
 
     def clear_consent(self):
@@ -47,6 +51,16 @@ class ConsentState:
             self.speaker_name = None
             self.consent_timestamp = 0.0
             self.capture_next_frame = False
+
+    def add_consented_name(self, name: str):
+        with self._lock:
+            self.consented_names.add(name)
+            logger.info(f"Added consented name: {name}")
+
+    def remove_consented_name(self, name: str):
+        with self._lock:
+            self.consented_names.discard(name)
+            logger.info(f"Removed consented name: {name}")
 
 
 class ConnectionState:
