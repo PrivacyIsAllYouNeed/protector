@@ -1,3 +1,4 @@
+api: yes
 rtmp: no
 paths:
   all:
@@ -9,4 +10,6 @@ pathDefaults:
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d (year, month, day),
   # %H %M %S (hours, minutes, seconds), %f (microseconds), %z (time zone), %s (unix epoch).
-  recordPath: ./recordings/%path/%Y%m%d%H%M%S
+  recordPath: ./recordings/%path/%Y%m%d%H%M%S%f
+playback: yes
+playbackAddress: :9996

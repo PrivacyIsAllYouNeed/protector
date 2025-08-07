@@ -1,11 +1,16 @@
 import { useState, useCallback } from 'react'
 import WHEPClient from './components/WHEPClient'
+import RecordingsList from './components/RecordingsList'
+import RecordingPlayer from './components/RecordingPlayer'
+import type { Recording } from './services/recordings'
 import './components/WHEPClient.css'
 import './App.css'
 
 function App() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
   const [error, setError] = useState<string | null>(null)
+  const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null)
+  const [showRecordingPlayer, setShowRecordingPlayer] = useState(false)
 
   // WHEP endpoint configuration (port 8889 as specified in requirements)
   const whepEndpoint = 'http://localhost:8889/filtered/whep'
@@ -22,6 +27,17 @@ function App() {
 
   const clearError = useCallback(() => {
     setError(null)
+  }, [])
+
+  const handleSelectRecording = useCallback((recording: Recording) => {
+    setSelectedRecording(recording)
+    if (recording) {
+      setShowRecordingPlayer(true)
+    }
+  }, [])
+
+  const handleClosePlayer = useCallback(() => {
+    setShowRecordingPlayer(false)
   }, [])
 
   return (
@@ -91,9 +107,10 @@ function App() {
             <p className="panel-description">
               View and manage saved video recordings.
             </p>
-            <div className="coming-soon">
-              <span>Coming Soon</span>
-            </div>
+            <RecordingsList 
+              onSelectRecording={handleSelectRecording}
+              selectedRecording={selectedRecording}
+            />
           </section>
 
           <section className="ai-chat-panel">
@@ -114,6 +131,17 @@ function App() {
           Built with React, WebRTC, and WHEP protocol
         </p>
       </footer>
+
+      {showRecordingPlayer && (
+        <div className="recording-modal-overlay" onClick={handleClosePlayer}>
+          <div className="recording-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={handleClosePlayer}>
+              ×
+            </button>
+            <RecordingPlayer recording={selectedRecording} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
