@@ -14,6 +14,9 @@ FACE_NMS_THRESHOLD = float(os.getenv("FACE_NMS_THRESHOLD", "0.3"))
 FACE_TOP_K = int(os.getenv("FACE_TOP_K", "5000"))
 FACE_MIN_CONFIDENCE = float(os.getenv("FACE_MIN_CONFIDENCE", "0.5"))
 FACE_PADDING_RATIO = float(os.getenv("FACE_PADDING_RATIO", "0.1"))
+HEAD_CAPTURE_PADDING_RATIO = float(
+    os.getenv("HEAD_CAPTURE_PADDING_RATIO", "0.3")
+)  # Larger padding for head captures
 FACE_CACHE_DURATION_MS = float(os.getenv("FACE_CACHE_DURATION_MS", "100.0"))
 
 MODEL_PATH = BASE_DIR / "face_detection_yunet_2023mar.onnx"

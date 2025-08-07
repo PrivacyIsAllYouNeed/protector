@@ -10,7 +10,7 @@ from misc.config import (
     FACE_SCORE_THRESHOLD,
     FACE_NMS_THRESHOLD,
     FACE_TOP_K,
-    FACE_PADDING_RATIO,
+    HEAD_CAPTURE_PADDING_RATIO,
 )
 
 
@@ -53,7 +53,8 @@ class ConsentCapture:
         face_coords = faces[largest_face_idx]
         x, y, face_w, face_h = face_coords[:4].astype(int)
 
-        padding = int(min(face_w, face_h) * FACE_PADDING_RATIO)
+        # Use larger padding for head capture to include whole head
+        padding = int(min(face_w, face_h) * HEAD_CAPTURE_PADDING_RATIO)
         x1 = max(0, x - padding)
         y1 = max(0, y - padding)
         x2 = min(w, x + face_w + padding)
