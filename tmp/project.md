@@ -37,7 +37,5 @@ Note: No database is used for now. All data is handled as files on disk.
 ### Features
 
 - Web frontend (SPA) to:
-  - Display real-time processed video via WebRTC
   - List and manage consenting users
-  - List and manage/view recordings
 - Placeholder UI for future AI Chat feature (currently grayed out as coming soon)

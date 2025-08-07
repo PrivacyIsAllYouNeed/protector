@@ -118,7 +118,11 @@ React/TypeScript application showcasing the privacy infrastructure:
 - Real-time WHEP video streaming display
 - Connection status monitoring
 - Privacy-first UI with consent management panels
-- Recording management interface (planned)
+- Recording playback with MediaMTX integration
+  - View list of available recordings with timestamps and duration
+  - Play recordings in modal with full video controls
+  - Delete recordings with confirmation
+  - Auto-refresh recording list every 10 seconds
 - AI chat integration (planned)
 
 Run these commands before committing changes:
