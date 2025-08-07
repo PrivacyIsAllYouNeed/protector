@@ -19,9 +19,9 @@ class VADThread(BaseThread):
         input_queue: BoundedQueue[AudioData],
         output_queue: BoundedQueue[SpeechSegment],
         start_speech_prob: float = 0.1,
-        keep_speech_prob: float = 0.5,
-        stop_silence_ms: int = 500,
-        min_segment_ms: int = 300,
+        keep_speech_prob: float = 0.3,
+        stop_silence_ms: int = 1500,
+        min_segment_ms: int = 500,
         sampling_rate: int = 16000,
         chunk_size: int = 512,
     ):

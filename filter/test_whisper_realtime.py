@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""vad_transcribe.py
+"""
 
 Detect sentence‑level speech boundaries with Silero VAD, run faster‑whisper
 transcription on each detected sentence, and *optionally* save every segment
@@ -33,9 +33,9 @@ from faster_whisper import WhisperModel
 
 # ---------------------- Tunables ------------------------ #
 START_SPEECH_PROB = 0.1  # enter "speaking" state
-KEEP_SPEECH_PROB = 0.5  # stay in "speaking" state
-STOP_SILENCE_MS = 500  # pause that closes a segment (ms)
-MIN_SEGMENT_MS = 300  # ignore segments shorter than this (ms)
+KEEP_SPEECH_PROB = 0.3  # stay in "speaking" state
+STOP_SILENCE_MS = 1500  # pause that closes a segment (ms)
+MIN_SEGMENT_MS = 500  # ignore segments shorter than this (ms)
 # -------------------------------------------------------- #
 
 TARGET_SR = 16_000  # Silero VAD expects 16 kHz mono
