@@ -1,6 +1,6 @@
 /*.flv
 /*.wav
-/face_detection_yunet_2023mar.onnx
+/*.onnx
 /*.gguf
 __pycache__/
 /tmp-data/
