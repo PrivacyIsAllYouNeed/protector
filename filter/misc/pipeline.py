@@ -23,7 +23,7 @@ from misc.config import (
 from misc.logging import get_logger
 from misc.shutdown import get_shutdown_handler, is_shutting_down
 from misc.metrics import get_metrics_collector
-from threads.input_standalone import InputThread
+from threads.input_improved import InputThread
 from threads.video import VideoProcessingThread
 from threads.audio import AudioProcessingThread
 from threads.vad import VADThread
