@@ -12,13 +12,6 @@ The system is composed of three main components:
 
 ## 1. Real-Time Privacy Filter
 
-This is the core engine that processes video streams in real-time. It receives RTMP streams, anonymizes faces by default, listens for verbal consent to be recorded, and re-identifies consenting individuals in the video feed with optional name labels.
-
-### Features
-
-- **Storage**:
-  - Processed video is stored locally using `MediaRecorder` from `aiortc`.
-
 ## 2. Control API Server
 
 This FastAPI-based backend provides an HTTP API for managing data operations.

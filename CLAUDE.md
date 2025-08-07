@@ -28,7 +28,7 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 - Dynamic consent addition/revocation through file system changes
 - Selective face blurring - consented faces remain unblurred with name labels
 - Outputs to RTSP with preserved audio
-- MediaMTX exposes WebRTC stream for consumption
+- MediaMTX exposes WebRTC stream for consumption and records video
 - Multi-threaded architecture with queue-based communication
 - Graceful shutdown and comprehensive health monitoring
 
