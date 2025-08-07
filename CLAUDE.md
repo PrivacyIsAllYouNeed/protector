@@ -81,7 +81,7 @@ The transcription system uses a non-blocking architecture to prevent real-time d
 - In subsequent frames, all detected faces are matched against the consented faces database
 - Recognized consented faces remain unblurred with green name labels displayed above them
 - Unrecognized faces continue to be blurred for privacy protection
-- Head images are saved to `./consent_captures/` with format `YYYYMMDDHHMMSS_[name]_head.jpg`
+- Head images are saved to `./consent_captures/` with format `YYYYMMDDHHMMSS_[name].jpg`
 
 Run these commands before committing changes:
 

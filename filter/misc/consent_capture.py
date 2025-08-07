@@ -69,9 +69,9 @@ class ConsentCapture:
                 c for c in speaker_name.lower() if c.isalnum() or c in "_- "
             )
             safe_name = safe_name.replace(" ", "_").strip("_")
-            filename = f"{timestamp}_{safe_name}_head.jpg"
+            filename = f"{timestamp}_{safe_name}.jpg"
         else:
-            filename = f"{timestamp}_unknown_head.jpg"
+            filename = f"{timestamp}_unknown.jpg"
 
         filepath = os.path.join(cls.SCREENSHOT_DIR, filename)
         success = cv2.imwrite(filepath, head_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
