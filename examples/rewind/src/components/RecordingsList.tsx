@@ -6,9 +6,10 @@ import './RecordingsList.css'
 interface RecordingsListProps {
   onSelectRecording: (recording: Recording) => void
   selectedRecording: Recording | null
+  isStreamActive: boolean
 }
 
-function RecordingsList({ onSelectRecording, selectedRecording }: RecordingsListProps) {
+function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }: RecordingsListProps) {
   const [recordings, setRecordings] = useState<Recording[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +58,11 @@ function RecordingsList({ onSelectRecording, selectedRecording }: RecordingsList
     fetchRecordings()
   }
 
+  // Filter out the last recording if stream is active (it's the current streaming session)
+  const displayRecordings = isStreamActive && recordings.length > 0 
+    ? recordings.slice(0, -1) 
+    : recordings
+
   if (loading && recordings.length === 0) {
     return (
       <div className="recordings-list">
@@ -78,11 +84,11 @@ function RecordingsList({ onSelectRecording, selectedRecording }: RecordingsList
     )
   }
 
-  if (recordings.length === 0) {
+  if (displayRecordings.length === 0) {
     return (
       <div className="recordings-list">
         <div className="empty-state">
-          <p>No recordings available</p>
+          <p>{isStreamActive && recordings.length === 1 ? 'No completed recordings (current stream in progress)' : 'No recordings available'}</p>
           <button onClick={handleRefresh} className="refresh-btn">
             Refresh
           </button>
@@ -94,13 +100,13 @@ function RecordingsList({ onSelectRecording, selectedRecording }: RecordingsList
   return (
     <div className="recordings-list">
       <div className="recordings-header">
-        <h4>Available Recordings ({recordings.length})</h4>
+        <h4>Available Recordings ({displayRecordings.length})</h4>
         <button onClick={handleRefresh} className="refresh-btn" disabled={loading}>
           {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
       <div className="recordings-items">
-        {recordings.map((recording) => (
+        {displayRecordings.map((recording) => (
           <div
             key={recording.start}
             className={`recording-item ${selectedRecording?.start === recording.start ? 'selected' : ''}`}

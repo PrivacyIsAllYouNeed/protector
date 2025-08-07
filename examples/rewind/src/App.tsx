@@ -110,6 +110,7 @@ function App() {
             <RecordingsList 
               onSelectRecording={handleSelectRecording}
               selectedRecording={selectedRecording}
+              isStreamActive={connectionState === 'connected'}
             />
           </section>
 
