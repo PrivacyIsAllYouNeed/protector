@@ -4,3 +4,4 @@
 /*.gguf
 __pycache__/
 /tmp-data/
+/consent_captures/

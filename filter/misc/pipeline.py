@@ -1,7 +1,7 @@
 import time
 import threading
 from typing import Optional, List
-from misc.state import ThreadStateManager, ConnectionState
+from misc.state import ThreadStateManager, ConnectionState, ConsentState
 from misc.types import (
     VideoData,
     AudioData,
@@ -39,6 +39,7 @@ class Pipeline:
     def __init__(self):
         self.state_manager = ThreadStateManager()
         self.connection_state = ConnectionState()
+        self.consent_state = ConsentState()
         self.shutdown_handler = get_shutdown_handler()
         self.metrics = get_metrics_collector()
 
@@ -85,6 +86,7 @@ class Pipeline:
         self.video_processor = VideoProcessingThread(
             self.state_manager,
             self.connection_state,
+            self.consent_state,
             self.video_input_queue,
             self.video_output_queue,
         )
@@ -110,6 +112,7 @@ class Pipeline:
             for i in range(WHISPER_THREADS):
                 speech_worker = SpeechWorkerThread(
                     self.state_manager,
+                    self.consent_state,
                     self.speech_queue,
                     worker_id=i,
                 )

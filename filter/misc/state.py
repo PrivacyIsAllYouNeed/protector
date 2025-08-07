@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import Optional, Dict, Any
 from datetime import datetime
 from misc.types import ThreadState
@@ -6,6 +7,46 @@ from misc.logging import get_logger
 
 
 logger = get_logger(__name__)
+
+
+class ConsentState:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.has_consent: bool = False
+        self.speaker_name: Optional[str] = None
+        self.consent_timestamp: float = 0.0
+        self.capture_next_frame: bool = False
+
+    def set_consent(self, name: Optional[str] = None):
+        with self._lock:
+            self.has_consent = True
+            self.speaker_name = name
+            self.consent_timestamp = time.time()
+            self.capture_next_frame = True
+            logger.info(f"Consent granted by: {name or 'unknown'}")
+
+    def should_capture(self) -> bool:
+        with self._lock:
+            return self.capture_next_frame
+
+    def reset_capture(self):
+        with self._lock:
+            self.capture_next_frame = False
+
+    def get_consent_info(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "has_consent": self.has_consent,
+                "speaker_name": self.speaker_name,
+                "consent_timestamp": self.consent_timestamp,
+            }
+
+    def clear_consent(self):
+        with self._lock:
+            self.has_consent = False
+            self.speaker_name = None
+            self.consent_timestamp = 0.0
+            self.capture_next_frame = False
 
 
 class ConnectionState:

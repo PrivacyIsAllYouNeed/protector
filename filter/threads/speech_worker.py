@@ -2,7 +2,7 @@ import time
 from typing import Optional
 from faster_whisper import WhisperModel
 from threads.base import BaseThread
-from misc.state import ThreadStateManager
+from misc.state import ThreadStateManager, ConsentState
 from misc.types import SpeechSegment
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT, CPU_THREADS, WHISPER_MODEL
@@ -13,6 +13,7 @@ class SpeechWorkerThread(BaseThread):
     def __init__(
         self,
         state_manager: ThreadStateManager,
+        consent_state: ConsentState,
         input_queue: BoundedQueue[SpeechSegment],
         worker_id: int = 0,
     ):
@@ -22,6 +23,7 @@ class SpeechWorkerThread(BaseThread):
             heartbeat_interval=5.0,
         )
         self.input_queue = input_queue
+        self.consent_state = consent_state
         self.worker_id = worker_id
         self.asr: Optional[WhisperModel] = None
         self.consent_detector = None
@@ -102,6 +104,9 @@ class SpeechWorkerThread(BaseThread):
                         consent_result = self.consent_detector.detect_consent(full_text)
                         if consent_result.get("consent"):
                             name = consent_result.get("speaker", "Unknown")
+                            self.consent_state.set_consent(
+                                name if name != "Unknown" else None
+                            )
                             self.logger.info(f"[CONSENT DETECTED] Individual: {name}")
                     except Exception as e:
                         self.logger.error(f"Error in consent detection: {e}")

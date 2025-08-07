@@ -1,10 +1,11 @@
 from typing import Optional
 from threads.base import BaseThread
-from misc.state import ThreadStateManager, ConnectionState
+from misc.state import ThreadStateManager, ConnectionState, ConsentState
 from misc.types import VideoData, ProcessedVideoData
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT, DISABLE_VIDEO_PROCESSING
 from misc.face_detector import FaceDetector
+from misc.consent_capture import ConsentCapture
 
 
 class VideoProcessingThread(BaseThread):
@@ -12,6 +13,7 @@ class VideoProcessingThread(BaseThread):
         self,
         state_manager: ThreadStateManager,
         connection_state: ConnectionState,
+        consent_state: ConsentState,
         input_queue: BoundedQueue[VideoData],
         output_queue: BoundedQueue[ProcessedVideoData],
     ):
@@ -19,6 +21,7 @@ class VideoProcessingThread(BaseThread):
             name="VideoProcessor", state_manager=state_manager, heartbeat_interval=1.0
         )
         self.connection_state = connection_state
+        self.consent_state = consent_state
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.face_detector: Optional[FaceDetector] = None
@@ -62,6 +65,19 @@ class VideoProcessingThread(BaseThread):
             return False
 
     def _process_frame(self, video_data: VideoData) -> ProcessedVideoData:
+        # Check for consent-triggered capture BEFORE processing
+        if self.consent_state.should_capture():
+            try:
+                # Convert VideoFrame to numpy array for saving
+                bgr_frame = video_data.frame.to_ndarray(format="bgr24")
+                capture_path = ConsentCapture.save_frame(
+                    bgr_frame, self.consent_state.speaker_name
+                )
+                self.logger.info(f"Consent capture saved: {capture_path}")
+                self.consent_state.reset_capture()
+            except Exception as e:
+                self.logger.error(f"Failed to save consent screenshot: {e}")
+
         if DISABLE_VIDEO_PROCESSING:
             # Pass through original frame without processing
             processed_video = ProcessedVideoData(
