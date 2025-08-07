@@ -1,5 +1,4 @@
 import av
-import time
 from av.container import InputContainer
 from av.video.frame import VideoFrame
 from av.audio.frame import AudioFrame
@@ -29,6 +28,7 @@ class InputThread(BaseThread):
         self.audio_queue = audio_queue
         self.vad_queue = vad_queue
         self.in_container: Optional[InputContainer] = None
+        self.demux_iterator: Optional[Any] = None
         self.has_audio = False
         self.has_video = False
         self.frame_sequence = 0
@@ -42,12 +42,19 @@ class InputThread(BaseThread):
     def process_iteration(self) -> bool:
         if not self.in_container:
             if not self._connect():
-                time.sleep(1.0)
+                # Return True to indicate we processed (attempted connection)
+                # BaseThread will add minimal sleep if needed
                 return True
+            # Connected successfully, set up demux iterator
+            if self.in_container:
+                self.demux_iterator = self.in_container.demux()
+            return True
 
         try:
-            return self._process_packets()
+            # Process single packet per iteration for responsiveness
+            return self._process_single_packet()
         except (TimeoutError, StopIteration):
+            self._disconnect()
             return False
         except (FFmpegError, OSError) as e:
             if "Immediate exit requested" not in str(e):
@@ -108,6 +115,8 @@ class InputThread(BaseThread):
             return False
 
     def _disconnect(self):
+        self.demux_iterator = None
+
         if self.in_container:
             try:
                 self.in_container.close()
@@ -126,38 +135,32 @@ class InputThread(BaseThread):
         if self.vad_queue:
             self.vad_queue.clear()
 
-    def _process_packets(self) -> bool:
-        if not self.in_container:
+    def _process_single_packet(self) -> bool:
+        """Process a single packet per iteration for better responsiveness."""
+        if not self.demux_iterator:
             return False
 
-        processed_any = False
-
         try:
-            for packet in self.in_container.demux():
-                if self.should_stop():
-                    break
+            # Get next packet without blocking indefinitely
+            packet = next(self.demux_iterator)
 
-                if packet.stream.type == "video" and self.has_video:
-                    frames = packet.decode()
-                    for frame in frames:
-                        if isinstance(frame, VideoFrame):
-                            self._process_video_frame(frame)
-                            processed_any = True
+            if packet.stream.type == "video" and self.has_video:
+                frames = packet.decode()
+                for frame in frames:
+                    if isinstance(frame, VideoFrame):
+                        self._process_video_frame(frame)
 
-                elif packet.stream.type == "audio" and self.has_audio:
-                    frames = packet.decode()
-                    for frame in frames:
-                        if isinstance(frame, AudioFrame):
-                            self._process_audio_frame(frame)
-                            processed_any = True
+            elif packet.stream.type == "audio" and self.has_audio:
+                frames = packet.decode()
+                for frame in frames:
+                    if isinstance(frame, AudioFrame):
+                        self._process_audio_frame(frame)
 
-        except TimeoutError:
-            return processed_any
+            return True  # Processed a packet
+
         except StopIteration:
-            self._disconnect()
+            # Stream ended
             raise
-
-        return processed_any
 
     def _process_video_frame(self, frame: VideoFrame):
         timestamp = float(frame.time) if frame.time else self.stream_time
