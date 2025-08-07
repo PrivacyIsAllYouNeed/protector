@@ -35,30 +35,31 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 **Architecture:**
 ```
 filter/
-├── main.py                 # Entry point (minimal)
-├── misc/                   # Core infrastructure & shared components
-│   ├── pipeline.py         # Pipeline orchestrator
-│   ├── config.py           # Configuration with env vars
-│   ├── types.py            # Shared data types
-│   ├── queues.py           # Bounded queues with backpressure
-│   ├── state.py            # Connection/thread state management & consent tracking
-│   ├── metrics.py          # Performance metrics
-│   ├── logging.py          # Structured logging
-│   ├── shutdown.py         # Signal handling
-│   ├── face_detector.py    # YuNet face detection module with recognition support
-│   ├── face_recognizer.py  # SFace face recognition module (multi-feature support)
-│   ├── consent_detector.py # LLM-based consent detection
-│   ├── consent_capture.py  # Head image capture utility for consent
-│   └── consent_manager.py  # File-based consent management with watchfiles monitoring
-└── threads/                # Thread implementations
-    ├── base.py             # Abstract base thread
-    ├── input.py            # RTMP demuxer thread
-    ├── video.py            # Face detection/recognition thread (with consent capture)
-    ├── audio.py            # Audio transcoding thread
-    ├── vad.py              # Real-time VAD processing thread
-    ├── speech_worker.py    # Background Whisper transcription thread (triggers consent)
-    ├── output.py           # RTSP muxer thread
-    └── monitor.py          # Health monitoring thread
+├─ main.py                  # Entry point
+├─ misc/
+│  ├─ pipeline.py           # Pipeline orchestrator
+│  ├─ config.py             # Configuration with env vars
+│  ├─ types.py              # Shared data types
+│  ├─ queues.py             # Bounded queues with backpressure
+│  ├─ state.py              # Connection/thread state management
+│  ├─ metrics.py            # Performance metrics
+│  ├─ logging.py            # Structured logging
+│  ├─ shutdown.py           # Signal handling
+│  ├─ face_detector.py      # Face detection module
+│  ├─ face_recognizer.py    # Face recognition module
+│  ├─ consent_detector.py   # LLM-based consent detection
+│  ├─ consent_capture.py    # Head image capture utility for consent
+│  ├─ consent_manager.py    # File-based consent management with monitoring
+│  └─ consent_file_utils.py # Consent file naming and parsing utilities
+└─ threads/
+    ├─ base.py              # Abstract base thread
+    ├─ input.py             # RTMP demuxer thread
+    ├─ video.py             # Face detection/recognition thread
+    ├─ audio.py             # Audio transcoding thread
+    ├─ vad.py               # Real-time VAD processing thread
+    ├─ speech_worker.py     # Background Whisper transcription thread
+    ├─ output.py            # RTSP muxer thread
+    └─ monitor.py           # Health monitoring thread
 ```
 
 **Threading Model:**
