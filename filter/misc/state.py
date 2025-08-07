@@ -25,7 +25,8 @@ class ConsentState:
             self.consent_timestamp = time.time()
             self.capture_next_frame = True
             if name:
-                self.consented_names.add(name)
+                # Normalize to lowercase for consistency
+                self.consented_names.add(name.lower())
             logger.info(f"Consent granted by: {name or 'unknown'}")
 
     def should_capture(self) -> bool:
@@ -54,12 +55,14 @@ class ConsentState:
 
     def add_consented_name(self, name: str):
         with self._lock:
-            self.consented_names.add(name)
+            # Normalize to lowercase for consistency
+            self.consented_names.add(name.lower())
             logger.info(f"Added consented name: {name}")
 
     def remove_consented_name(self, name: str):
         with self._lock:
-            self.consented_names.discard(name)
+            # Normalize to lowercase for consistency
+            self.consented_names.discard(name.lower())
             logger.info(f"Removed consented name: {name}")
 
 

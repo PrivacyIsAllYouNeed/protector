@@ -84,7 +84,10 @@ class VideoProcessingThread(BaseThread):
                         recognizer = get_face_recognizer()
                         feature = recognizer.extract_feature(bgr_frame, face_coords)
 
-                        name = self.consent_state.speaker_name or "unknown"
+                        # Use sanitized name for consistency with file-based loading
+                        from misc.consent_file_utils import sanitize_name
+
+                        name = sanitize_name(self.consent_state.speaker_name)
                         recognizer.add_consented_face(name, feature)
 
                         self.logger.info(f"Added {name} to consented faces database")

@@ -1,5 +1,3 @@
-import os
-from datetime import datetime
 from typing import Optional, Tuple, Any
 import cv2
 import numpy as np
@@ -12,14 +10,13 @@ from misc.config import (
     FACE_TOP_K,
     HEAD_CAPTURE_PADDING_RATIO,
 )
+from misc.consent_file_utils import get_consent_filepath
 
 
 logger = get_logger(__name__)
 
 
 class ConsentCapture:
-    SCREENSHOT_DIR = "consent_captures"
-
     @classmethod
     def save_head_image(
         cls, frame: NDArray[Any], speaker_name: Optional[str] = None
@@ -62,20 +59,9 @@ class ConsentCapture:
 
         head_image = frame[y1:y2, x1:x2]
 
-        os.makedirs(cls.SCREENSHOT_DIR, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
-        if speaker_name:
-            safe_name = "".join(
-                c for c in speaker_name.lower() if c.isalnum() or c in "_- "
-            )
-            safe_name = safe_name.replace(" ", "_").strip("_")
-            filename = f"{timestamp}_{safe_name}.jpg"
-        else:
-            filename = f"{timestamp}_unknown.jpg"
-
-        filepath = os.path.join(cls.SCREENSHOT_DIR, filename)
-        success = cv2.imwrite(filepath, head_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        # Use the utility function to get the filepath
+        filepath = get_consent_filepath(speaker_name)
+        success = cv2.imwrite(str(filepath), head_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
         if not success:
             raise IOError(f"Failed to save head image to {filepath}")
@@ -83,4 +69,4 @@ class ConsentCapture:
         logger.info(
             f"Consent head image saved: {filepath} (face area: {face_w}x{face_h})"
         )
-        return filepath, face_coords
+        return str(filepath), face_coords

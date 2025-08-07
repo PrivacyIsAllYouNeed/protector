@@ -41,18 +41,22 @@ class FaceRecognizer:
 
     def add_consented_face(self, name: str, feature: NDArray[np.float32]) -> None:
         with self._lock:
-            if name not in self.consented_faces:
-                self.consented_faces[name] = []
-            self.consented_faces[name].append(feature)
+            # Normalize name to lowercase for consistency
+            name_lower = name.lower()
+            if name_lower not in self.consented_faces:
+                self.consented_faces[name_lower] = []
+            self.consented_faces[name_lower].append(feature)
             self.logger.info(
-                f"Added consented face for: {name} (total: {len(self.consented_faces[name])})"
+                f"Added consented face for: {name_lower} (total: {len(self.consented_faces[name_lower])})"
             )
 
     def remove_consented_face(self, name: str) -> None:
         with self._lock:
-            if name in self.consented_faces:
-                del self.consented_faces[name]
-                self.logger.info(f"Removed all consent faces for: {name}")
+            # Normalize name to lowercase for consistency
+            name_lower = name.lower()
+            if name_lower in self.consented_faces:
+                del self.consented_faces[name_lower]
+                self.logger.info(f"Removed all consent faces for: {name_lower}")
 
     def match_face(self, feature: NDArray[np.float32]) -> Tuple[bool, Optional[str]]:
         with self._lock:

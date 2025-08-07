@@ -10,10 +10,16 @@ from misc.logging import get_logger
 from misc.config import MODEL_PATH, FACE_SCORE_THRESHOLD, FACE_NMS_THRESHOLD, FACE_TOP_K
 from misc.face_recognizer import get_face_recognizer
 from misc.state import ConsentState
+from misc.consent_file_utils import (
+    CONSENT_DIR,
+    ensure_consent_dir_exists,
+    parse_consent_filename,
+    extract_name_from_path,
+    list_all_consent_files,
+    find_consent_files_for_name,
+)
 
 logger = get_logger(__name__)
-
-CONSENT_DIR = Path("./consent_captures")
 
 
 class ConsentManager:
@@ -25,12 +31,8 @@ class ConsentManager:
         self.logger = get_logger(__name__)
 
     def load_existing_consents(self) -> None:
-        if not CONSENT_DIR.exists():
-            CONSENT_DIR.mkdir(parents=True, exist_ok=True)
-            self.logger.info(f"Created consent directory: {CONSENT_DIR}")
-            return
-
-        consent_files = list(CONSENT_DIR.glob("*.jpg"))
+        ensure_consent_dir_exists()
+        consent_files = list_all_consent_files()
         self.logger.info(f"Loading {len(consent_files)} existing consent files")
 
         for file_path in consent_files:
@@ -44,18 +46,13 @@ class ConsentManager:
         )
 
     def _process_consent_file(self, file_path: Path, is_startup: bool = False) -> None:
-        filename = file_path.name
-        parts = filename.rsplit("_", 1)
-        if len(parts) != 2:
-            self.logger.warning(f"Invalid consent filename format: {filename}")
+        # Use utility to parse the filename
+        parse_result = parse_consent_filename(file_path.name)
+        if not parse_result:
+            self.logger.warning(f"Invalid consent filename format: {file_path.name}")
             return
 
-        timestamp_str, name_with_ext = parts
-        if not name_with_ext.endswith(".jpg"):
-            self.logger.warning(f"Invalid consent file extension: {filename}")
-            return
-
-        name = name_with_ext[:-4]  # Remove .jpg
+        _, name = parse_result  # name is already lowercase from the utility
 
         image = cv2.imread(str(file_path))
         if image is None:
@@ -67,7 +64,7 @@ class ConsentManager:
             self.face_recognizer.add_consented_face(name, features)
             self.consent_state.add_consented_name(name)
             if not is_startup:
-                self.logger.info(f"Added consent for: {name} from {filename}")
+                self.logger.info(f"Added consent for: {name} from {file_path.name}")
         else:
             self.logger.warning(f"No face detected in consent image: {file_path}")
 
@@ -155,33 +152,33 @@ class ConsentManager:
             self.logger.error(f"Error in consent monitoring thread: {e}")
 
     def _handle_file_change(self, change_type: Change, file_path: Path) -> None:
-        filename = file_path.name
-
         if change_type == Change.added:
             self._process_consent_file(file_path, is_startup=False)
 
         elif change_type == Change.deleted:
-            parts = filename.rsplit("_", 1)
-            if len(parts) == 2:
-                _, name_with_ext = parts
-                if name_with_ext.endswith(".jpg"):
-                    name = name_with_ext[:-4]
+            # Extract name from the deleted file
+            name = extract_name_from_path(file_path)
+            if not name:
+                self.logger.warning(
+                    f"Could not extract name from deleted file: {file_path.name}"
+                )
+                return
 
-                    # Check if there are other files for this person
-                    other_files = list(CONSENT_DIR.glob(f"*_{name}.jpg"))
-                    if not other_files:
-                        # No other consent files for this person, remove from database
-                        self.face_recognizer.remove_consented_face(name)
-                        self.consent_state.remove_consented_name(name)
-                        self.logger.info(f"Revoked consent for: {name}")
-                    else:
-                        # Reload all remaining files for this person
-                        self.logger.info(
-                            f"Reloading {len(other_files)} remaining files for {name}"
-                        )
-                        self.face_recognizer.remove_consented_face(name)
-                        for other_file in other_files:
-                            self._process_consent_file(other_file, is_startup=False)
+            # Check if there are other files for this person
+            other_files = find_consent_files_for_name(name)
+            if not other_files:
+                # No other consent files for this person, remove from database
+                self.face_recognizer.remove_consented_face(name)
+                self.consent_state.remove_consented_name(name)
+                self.logger.info(f"Revoked consent for: {name}")
+            else:
+                # Reload all remaining files for this person
+                self.logger.info(
+                    f"Reloading {len(other_files)} remaining files for {name}"
+                )
+                self.face_recognizer.remove_consented_face(name)
+                for other_file in other_files:
+                    self._process_consent_file(other_file, is_startup=False)
 
 
 _consent_manager: Optional[ConsentManager] = None
