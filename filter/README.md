@@ -10,4 +10,4 @@ Run:
 2. `uv run main.py`
 3. `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -c:v libx264 -preset ultrafast -tune zerolatency -loglevel warning -f flv rtmp://127.0.0.1:1935/live/stream`
     - `ffmpeg -re -stream_loop -1 -i consent1.flv -vf "scale=1280:720,fps=30" -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -profile:v baseline -c:a aac -ar 44100 -b:a 128k -f flv rtmp://127.0.0.1:1935/live/stream`
-4. `ffplay -loglevel error rtsp://127.0.0.1:8554/blurred`
+4. `ffplay -loglevel error rtsp://127.0.0.1:8554/filtered`

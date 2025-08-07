@@ -8,7 +8,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
 
   // WHEP endpoint configuration (port 8889 as specified in requirements)
-  const whepEndpoint = 'http://localhost:8889/blurred/whep'
+  const whepEndpoint = 'http://localhost:8889/filtered/whep'
 
   const handleConnectionStateChange = useCallback((state: RTCPeerConnectionState) => {
     setConnectionState(state)

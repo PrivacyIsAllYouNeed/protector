@@ -5,7 +5,7 @@ import os
 BASE_DIR = Path(__file__).parent.parent
 
 IN_URL = os.getenv("FILTER_IN_URL", "rtmp://0.0.0.0:1935/live/stream")
-OUT_URL = os.getenv("FILTER_OUT_URL", "rtsp://127.0.0.1:8554/blurred")
+OUT_URL = os.getenv("FILTER_OUT_URL", "rtsp://127.0.0.1:8554/filtered")
 FPS = int(os.getenv("FILTER_FPS", "30"))
 
 FACE_BLUR_KERNEL = (51, 51)
