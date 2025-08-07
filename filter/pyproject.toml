@@ -19,6 +19,7 @@ dependencies = [
     "torch>=2.7.1",
     "torchaudio>=2.7.1",
     "uvloop>=0.21.0",
+    "watchfiles>=1.1.0",
 ]
 
 [dependency-groups]
