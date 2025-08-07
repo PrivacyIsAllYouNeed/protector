@@ -21,7 +21,6 @@ This is the core engine that processes video streams in real-time. It receives R
   - Face matching using `face_recognition`.
   - Display name label next to consenting faces (if provided).
 - **Verbal Consent Detection**:
-  - Detect consent from the transcript and extract names using local llm, `llama-cpp-python` with `gemma 3 1b`.
   - Update face matching registry based on recognized consent.
 - **Storage**:
   - Processed video is stored locally using `MediaRecorder` from `aiortc`.

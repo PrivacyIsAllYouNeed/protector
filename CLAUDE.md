@@ -20,6 +20,7 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 - Receives RTMP input streams with video and audio
 - Detects and blurs faces using YuNet neural network
 - Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
+- Automatic consent detection from transcribed speech using local LLM
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption
 - Multi-threaded architecture with queue-based communication
@@ -28,26 +29,27 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 **Architecture:**
 ```
 filter/
-├── main.py              # Entry point (minimal)
-├── misc/                # Core infrastructure & shared components
-│   ├── pipeline.py      # Pipeline orchestrator
-│   ├── config.py        # Configuration with env vars
-│   ├── types.py         # Shared data types
-│   ├── queues.py        # Bounded queues with backpressure
-│   ├── state.py         # Connection/thread state management
-│   ├── metrics.py       # Performance metrics
-│   ├── logging.py       # Structured logging
-│   ├── shutdown.py      # Signal handling
-│   └── face_detector.py # YuNet face detection module
-└── threads/             # Thread implementations
-    ├── base.py          # Abstract base thread
-    ├── input.py         # RTMP demuxer thread
-    ├── video.py         # Face detection thread
-    ├── audio.py         # Audio transcoding thread
-    ├── vad.py           # Real-time VAD processing thread
-    ├── speech_worker.py # Background Whisper transcription thread
-    ├── output.py        # RTSP muxer thread
-    └── monitor.py       # Health monitoring thread
+├── main.py                 # Entry point (minimal)
+├── misc/                   # Core infrastructure & shared components
+│   ├── pipeline.py         # Pipeline orchestrator
+│   ├── config.py           # Configuration with env vars
+│   ├── types.py            # Shared data types
+│   ├── queues.py           # Bounded queues with backpressure
+│   ├── state.py            # Connection/thread state management
+│   ├── metrics.py          # Performance metrics
+│   ├── logging.py          # Structured logging
+│   ├── shutdown.py         # Signal handling
+│   ├── face_detector.py    # YuNet face detection module
+│   └── consent_detector.py # LLM-based consent detection
+└── threads/                # Thread implementations
+    ├── base.py             # Abstract base thread
+    ├── input.py            # RTMP demuxer thread
+    ├── video.py            # Face detection thread
+    ├── audio.py            # Audio transcoding thread
+    ├── vad.py              # Real-time VAD processing thread
+    ├── speech_worker.py    # Background Whisper transcription thread
+    ├── output.py           # RTSP muxer thread
+    └── monitor.py          # Health monitoring thread
 ```
 
 **Threading Model:**
@@ -59,11 +61,13 @@ filter/
 - **Output Thread**: Muxes processed streams to RTSP
 - **Monitor Thread**: Health monitoring and metrics collection
 
-**Transcription Architecture:**
+**Transcription & Consent Detection:**
 The transcription system uses a non-blocking architecture to prevent real-time degradation:
 - VAD Thread continuously processes audio in real-time, detecting speech boundaries
 - When speech ends, complete segments are queued for transcription
 - Speech Worker Thread(s) consume segments and run Whisper inference in the background
+- Transcribed text is analyzed by a local LLM to detect explicit consent phrases
+- Consent detection identifies both the consent status and speaker's name when available
 - This separation ensures VAD never waits for transcription, maintaining real-time performance
 
 Run these commands before committing changes:

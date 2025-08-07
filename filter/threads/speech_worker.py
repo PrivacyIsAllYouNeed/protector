@@ -6,6 +6,7 @@ from misc.state import ThreadStateManager
 from misc.types import SpeechSegment
 from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT, CPU_THREADS, WHISPER_MODEL
+from misc.consent_detector import get_consent_detector
 
 
 class SpeechWorkerThread(BaseThread):
@@ -23,6 +24,7 @@ class SpeechWorkerThread(BaseThread):
         self.input_queue = input_queue
         self.worker_id = worker_id
         self.asr: Optional[WhisperModel] = None
+        self.consent_detector = None
         self.transcriptions_completed = 0
         self.segments_dropped = 0
 
@@ -37,6 +39,12 @@ class SpeechWorkerThread(BaseThread):
         self.logger.info(
             f"Speech worker {self.worker_id} initialized with model={WHISPER_MODEL}"
         )
+
+        self.consent_detector = get_consent_detector()
+        if self.consent_detector:
+            self.logger.info("Consent detector initialized")
+        else:
+            self.logger.warning("Consent detector not available")
 
     def process_iteration(self) -> bool:
         segment = self.input_queue.get(timeout=QUEUE_TIMEOUT)
@@ -88,6 +96,15 @@ class SpeechWorkerThread(BaseThread):
                     f"Transcribed {segment_duration:.2f}s segment in {inference_time:.2f}s "
                     f"(realtime factor: {inference_time / segment_duration:.2f}x)"
                 )
+
+                if self.consent_detector:
+                    try:
+                        consent_result = self.consent_detector.detect_consent(full_text)
+                        if consent_result.get("consent"):
+                            name = consent_result.get("speaker", "Unknown")
+                            self.logger.info(f"[CONSENT DETECTED] Individual: {name}")
+                    except Exception as e:
+                        self.logger.error(f"Error in consent detection: {e}")
 
                 self.transcriptions_completed += 1
                 self.metrics.record_transcription()
