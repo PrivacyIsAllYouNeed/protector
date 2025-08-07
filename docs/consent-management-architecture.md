@@ -10,9 +10,9 @@ All consent data is stored as image files in a single directory:
 
 ```
 ./consent_captures/
-├── 20240307120000_john_doe.jpg
+├── 20240307120000_john.jpg
 ├── 20240307120100_jane_smith.jpg
-└── 20240307120130_bob_jones.jpg
+└── 20240307120130_unknown.jpg
 ```
 
 Each file encodes all necessary information in its name:
@@ -22,14 +22,6 @@ Each file encodes all necessary information in its name:
 
 ## Filter Component (`./filter/`)
 
-### Consent Detection and Capture
-
-1. **Speech transcription** detects consent phrases (e.g., "My name is John Doe and I consent")
-2. **Consent capture** saves the largest visible face to `./consent_captures/YYYYMMDDHHMMSS_name.jpg`
-3. **Face features** are extracted using SFace model and stored in memory
-4. **Face recognition** matches all detected faces against consented individuals
-5. **Selective blurring** - only non-consented faces are blurred
-
 ### Startup Initialization
 
 On startup, the filter:
@@ -37,14 +29,87 @@ On startup, the filter:
 2. Parses filenames to extract names and timestamps
 3. Loads each image and extracts face features using SFace
 4. Populates the in-memory consent database for real-time recognition
+5. Starts watchfiles monitor for real-time consent updates
 
-### Real-time Revocation Detection
+### Real-time Consent Updates
 
-The filter uses filesystem monitoring for instant revocation detection:
-1. **Watchdog** monitors `./consent_captures/` directory for file deletions
-2. When a file is deleted, parses the filename to identify the person
-3. Immediately removes that person from the in-memory consent database
-4. Subsequent frames will blur that person's face again
+The filter uses filesystem monitoring for instant consent changes:
+1. **watchfiles** monitors `./consent_captures/` directory for all file events
+2. When a file is **added** (new consent):
+   - Parses the filename to extract name and timestamp
+   - Loads the image and extracts face features
+   - Adds to the in-memory consent database
+3. When a file is **deleted** (revoked consent):
+   - Parses the filename to identify the person
+   - Removes from the in-memory consent database
+   - Subsequent frames will blur that person's face again
+
+#### Watchfiles Sample Code
+
+```python
+from watchfiles import watch, Change
+import os
+from pathlib import Path
+
+def monitor_consent_directory():
+    """Monitor consent_captures directory for real-time updates."""
+    consent_dir = Path('./consent_captures')
+
+    # Only monitor .jpg files
+    def image_filter(change: Change, path: str) -> bool:
+        return path.endswith('.jpg')
+
+    for changes in watch(consent_dir, watch_filter=image_filter):
+        for change_type, file_path in changes:
+            filename = os.path.basename(file_path)
+
+            if change_type == Change.added:
+                # New consent detected
+                # Parse filename: YYYYMMDDHHMMSS_name.jpg
+                parts = filename.rsplit('_', 1)
+                if len(parts) == 2:
+                    timestamp_str, name_with_ext = parts
+                    name = name_with_ext[:-4]  # Remove .jpg
+
+                    # Load image and extract features
+                    image = cv2.imread(file_path)
+                    features = extract_face_features(image)
+
+                    # Add to in-memory database
+                    add_consented_person(name, features)
+                    print(f"Added consent for: {name}")
+
+            elif change_type == Change.deleted:
+                # Consent revoked
+                parts = filename.rsplit('_', 1)
+                if len(parts) == 2:
+                    _, name_with_ext = parts
+                    name = name_with_ext[:-4]  # Remove .jpg
+
+                    # Remove from in-memory database
+                    remove_consented_person(name)
+                    print(f"Revoked consent for: {name}")
+```
+
+This can run in a separate thread or be integrated into the Monitor Thread:
+
+```python
+import threading
+
+# Start monitoring in a separate thread
+monitor_thread = threading.Thread(target=monitor_consent_directory, daemon=True)
+monitor_thread.start()
+```
+
+There's also an async impl as well, so use that version when appropriate:
+
+```python
+import asyncio
+from watchfiles import awatch
+# ...
+```
+
+You should do web-search for more info about async interface.
 
 ### Handling Multiple Captures
 
@@ -91,7 +156,7 @@ Revokes consent for a person:
 - Finds all files matching `*_{name}.jpg`
 - Deletes the file(s)
 - Returns success/failure status
-- Filter detects deletion via watchdog and updates immediately
+- Filter detects deletion via watchfiles and updates immediately
 
 #### `GET /consent/{name}/capture`
 Retrieves the captured face image:
@@ -106,31 +171,12 @@ The API performs simple filesystem operations:
 - No complex locking needed as operations are atomic
 - No database synchronization required
 
-## Advantages of This Design
-
-1. **Simplicity**: The filesystem is the database - no additional storage layer
-2. **Atomicity**: File operations (create/delete) are atomic on most filesystems
-3. **Transparency**: Easy to inspect, backup, and manage consent data
-4. **Performance**: No serialization overhead for face features - extracted on demand
-5. **Debugging**: Can visually verify consent captures directly
-6. **Portability**: Works on any filesystem without dependencies
-
-## Future Enhancements
-
-While the file-based approach works well for moderate scale, future enhancements could include:
-
-1. **Database migration**: Move to Redis/PostgreSQL for higher scale
-2. **Feature caching**: Store extracted face features to avoid re-extraction on startup
-3. **Consent expiry**: Automatic expiration based on timestamp
-4. **Audit logging**: Track all consent operations with detailed logs
-5. **Backup strategy**: Automated backup of consent captures
-6. **Multi-instance support**: Shared storage for multiple filter instances
-
 ## Implementation Notes
 
 ### Filter Implementation
-- Watchdog integration should be added to the Monitor Thread or as a separate thread
-- Face feature extraction happens in the Video Thread during consent capture
+- Initial consent capture happens in the Video Thread
+- Real-time consent additions are processed by the watchfiles monitor
+- Face feature extraction happens both during initial capture and when files are added
 - The in-memory consent database in `state.py` remains the single source of truth during runtime
 
 ### API Implementation
@@ -142,4 +188,3 @@ While the file-based approach works well for moderate scale, future enhancements
 ### Shared Concerns
 - Both components must agree on the `./consent_captures/` directory location
 - File naming convention must remain consistent
-- Consider using environment variables for configurable paths
