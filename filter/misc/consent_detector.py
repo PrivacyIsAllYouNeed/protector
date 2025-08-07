@@ -2,8 +2,23 @@ import os
 import sys
 import json
 from typing import TypedDict
-from llama_cpp import Llama
+from llama_cpp import Llama, llama_log_set
 from misc.logging import get_logger
+from ctypes import CFUNCTYPE, c_int, c_char_p, c_void_p
+
+# Define the C callback type: (level, text, user_data) -> None
+LOG_CB = CFUNCTYPE(None, c_int, c_char_p, c_void_p)
+
+
+# Keep a global reference so it isn't GC'd
+def _log_sink(_level, _text, _user_data):
+    # swallow everything; or forward to Python logging if you want
+    return None
+
+
+_log_cb = LOG_CB(_log_sink)
+
+llama_log_set(_log_cb, c_void_p())
 
 
 class ConsentResult(TypedDict):
