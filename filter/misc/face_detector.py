@@ -16,13 +16,14 @@ consistent detection quality while optimizing for real-time performance.
 
 import threading
 import time
-from typing import Any
+from typing import Any, Tuple, List, Dict
 import numpy as np
 from numpy.typing import NDArray
 import cv2
 from av.video.frame import VideoFrame
 
 from misc.logging import get_logger
+from misc.face_recognizer import get_face_recognizer
 from misc.config import (
     MODEL_PATH,
     FACE_BLUR_KERNEL,
@@ -130,6 +131,78 @@ class FaceDetector:
 
         # Convert back to VideoFrame, preserving timing information
         return self._create_output_frame(bgr_blurred, frame), len(face_rectangles)
+
+    def process_faces_with_recognition(
+        self, frame: VideoFrame, enable_recognition: bool = True
+    ) -> Tuple[VideoFrame, int, Dict[str, Any]]:
+        """
+        Detect faces and selectively blur based on consent recognition.
+
+        Args:
+            frame: Input video frame
+            enable_recognition: Whether to use face recognition
+
+        Returns:
+            Tuple of (processed frame, total faces detected, recognition info)
+        """
+        bgr = frame.to_ndarray(format="bgr24")
+        h, w = bgr.shape[:2]
+
+        faces = self._detect_faces_raw(bgr, w, h)
+
+        if faces is None or len(faces) == 0:
+            return frame, 0, {}
+
+        recognizer = get_face_recognizer() if enable_recognition else None
+        blurred_count = 0
+        recognized_faces: List[Dict[str, Any]] = []
+
+        for i in range(len(faces)):
+            face_coords = faces[i]
+            x, y, face_w, face_h = face_coords[:4].astype(int)
+
+            is_recognized = False
+            name = None
+
+            if recognizer and recognizer.get_consented_count() > 0:
+                try:
+                    feature = recognizer.extract_feature(bgr, face_coords)
+                    is_recognized, name = recognizer.match_face(feature)
+                except Exception as e:
+                    self.logger.debug(f"Face recognition failed for face {i}: {e}")
+
+            if not is_recognized:
+                rectangle = self._calculate_padded_bbox(x, y, face_w, face_h, w, h)
+                self._blur_region(bgr, *rectangle)
+                blurred_count += 1
+            else:
+                recognized_faces.append({"bbox": (x, y, face_w, face_h), "name": name})
+
+                if name:
+                    cv2.putText(
+                        bgr,
+                        name,
+                        (x, max(y - 10, 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (0, 255, 0),
+                        2,
+                        cv2.LINE_AA,
+                    )
+
+        recognition_info = {
+            "total_faces": len(faces),
+            "blurred_faces": blurred_count,
+            "recognized_faces": recognized_faces,
+        }
+
+        return self._create_output_frame(bgr, frame), len(faces), recognition_info
+
+    def _detect_faces_raw(
+        self, bgr: NDArray[Any], width: int, height: int
+    ) -> NDArray[np.float32] | None:
+        """Get raw face detection results without caching."""
+        return self._detect_faces(bgr, width, height)
 
     def _get_face_rectangles(
         self, bgr: NDArray[Any], width: int, height: int

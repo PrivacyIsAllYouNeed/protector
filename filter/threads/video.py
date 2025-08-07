@@ -6,6 +6,7 @@ from misc.queues import BoundedQueue
 from misc.config import QUEUE_TIMEOUT, DISABLE_VIDEO_PROCESSING
 from misc.face_detector import FaceDetector
 from misc.consent_capture import ConsentCapture
+from misc.face_recognizer import get_face_recognizer
 
 
 class VideoProcessingThread(BaseThread):
@@ -26,6 +27,7 @@ class VideoProcessingThread(BaseThread):
         self.output_queue = output_queue
         self.face_detector: Optional[FaceDetector] = None
         self.frames_processed = 0
+        self.enable_recognition = True
 
     def setup(self):
         if not DISABLE_VIDEO_PROCESSING:
@@ -70,13 +72,30 @@ class VideoProcessingThread(BaseThread):
             try:
                 # Convert VideoFrame to numpy array for saving
                 bgr_frame = video_data.frame.to_ndarray(format="bgr24")
-                capture_path = ConsentCapture.save_frame(
+
+                # Save head image and get face coordinates
+                capture_path, face_coords = ConsentCapture.save_head_image(
                     bgr_frame, self.consent_state.speaker_name
                 )
-                self.logger.info(f"Consent capture saved: {capture_path}")
+
+                # If face was detected, extract features and add to database
+                if capture_path and face_coords is not None:
+                    try:
+                        recognizer = get_face_recognizer()
+                        feature = recognizer.extract_feature(bgr_frame, face_coords)
+
+                        name = self.consent_state.speaker_name or "unknown"
+                        recognizer.add_consented_face(name, feature)
+
+                        self.logger.info(f"Added {name} to consented faces database")
+                    except Exception as e:
+                        self.logger.error(
+                            f"Failed to add face to recognition database: {e}"
+                        )
+
                 self.consent_state.reset_capture()
             except Exception as e:
-                self.logger.error(f"Failed to save consent screenshot: {e}")
+                self.logger.error(f"Failed to process consent capture: {e}")
 
         if DISABLE_VIDEO_PROCESSING:
             # Pass through original frame without processing
@@ -92,9 +111,18 @@ class VideoProcessingThread(BaseThread):
         if not self.face_detector:
             raise RuntimeError("Face detector not initialized")
 
-        processed_frame, faces_detected = self.face_detector.blur_faces_in_frame(
-            video_data.frame
+        # Use recognition-aware processing
+        processed_frame, faces_detected, recognition_info = (
+            self.face_detector.process_faces_with_recognition(
+                video_data.frame, enable_recognition=self.enable_recognition
+            )
         )
+
+        # Log recognition info periodically
+        if self.frames_processed % 100 == 0 and recognition_info:
+            recognized_count = len(recognition_info.get("recognized_faces", []))
+            if recognized_count > 0:
+                self.logger.debug(f"Recognized {recognized_count} consented faces")
 
         processed_video = ProcessedVideoData(
             frame=processed_frame,
