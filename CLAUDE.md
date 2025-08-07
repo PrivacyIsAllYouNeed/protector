@@ -23,6 +23,9 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 - Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
 - Automatic consent detection from transcribed speech using local LLM
 - Consent-triggered head image capture and face feature extraction
+- File-based consent management with real-time monitoring using watchfiles
+- Automatic loading of existing consent files on startup
+- Dynamic consent addition/revocation through file system changes
 - Selective face blurring - consented faces remain unblurred with name labels
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption
@@ -43,9 +46,10 @@ filter/
 │   ├── logging.py          # Structured logging
 │   ├── shutdown.py         # Signal handling
 │   ├── face_detector.py    # YuNet face detection module with recognition support
-│   ├── face_recognizer.py  # SFace face recognition module
+│   ├── face_recognizer.py  # SFace face recognition module (multi-feature support)
 │   ├── consent_detector.py # LLM-based consent detection
-│   └── consent_capture.py  # Head image capture utility for consent
+│   ├── consent_capture.py  # Head image capture utility for consent
+│   └── consent_manager.py  # File-based consent management with watchfiles monitoring
 └── threads/                # Thread implementations
     ├── base.py             # Abstract base thread
     ├── input.py            # RTMP demuxer thread
@@ -65,6 +69,7 @@ filter/
 - **Speech Worker Thread(s)**: Background Whisper transcription and consent detection
 - **Output Thread**: Muxes processed streams to RTSP
 - **Monitor Thread**: Health monitoring and metrics collection
+- **Consent Monitor Thread**: Watches consent_captures/ directory for real-time file changes (runs via watchfiles)
 
 **Transcription & Consent Detection:**
 The transcription system uses a non-blocking architecture to prevent real-time degradation:
@@ -76,12 +81,17 @@ The transcription system uses a non-blocking architecture to prevent real-time d
 - This separation ensures VAD never waits for transcription, maintaining real-time performance
 
 **Face Recognition & Consent Management:**
-- When consent is detected, the system captures a head image of the largest face (assumed to be the speaker)
-- Face features are extracted using SFace model and stored in an in-memory database with the speaker's name
+- When consent is detected via speech, the system captures a head image of the largest face (assumed to be the speaker)
+- Head images are saved to `./consent_captures/` with format `YYYYMMDDHHMMSS_[name].jpg`
+- On startup, all existing consent files are loaded and face features extracted
+- File system monitoring via watchfiles detects real-time consent changes:
+  - Adding a file grants consent for that person
+  - Deleting a file revokes consent for that person
+- Face features are extracted using SFace model and stored in an in-memory database
+- Multiple captures per person are supported for improved recognition accuracy
 - In subsequent frames, all detected faces are matched against the consented faces database
 - Recognized consented faces remain unblurred with green name labels displayed above them
 - Unrecognized faces continue to be blurred for privacy protection
-- Head images are saved to `./consent_captures/` with format `YYYYMMDDHHMMSS_[name].jpg`
 
 Run these commands before committing changes:
 
