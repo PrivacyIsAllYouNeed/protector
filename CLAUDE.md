@@ -19,9 +19,11 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 **Features:**
 - Receives RTMP input streams with video and audio
 - Detects and blurs faces using YuNet neural network
+- Face recognition for consented users using SFace neural network
 - Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
 - Automatic consent detection from transcribed speech using local LLM
-- Consent-triggered screenshot capture (saves unblurred frame when consent is given)
+- Consent-triggered head image capture and face feature extraction
+- Selective face blurring - consented faces remain unblurred with name labels
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption
 - Multi-threaded architecture with queue-based communication
@@ -40,13 +42,14 @@ filter/
 │   ├── metrics.py          # Performance metrics
 │   ├── logging.py          # Structured logging
 │   ├── shutdown.py         # Signal handling
-│   ├── face_detector.py    # YuNet face detection module
+│   ├── face_detector.py    # YuNet face detection module with recognition support
+│   ├── face_recognizer.py  # SFace face recognition module
 │   ├── consent_detector.py # LLM-based consent detection
-│   └── consent_capture.py  # Screenshot capture utility for consent
+│   └── consent_capture.py  # Head image capture utility for consent
 └── threads/                # Thread implementations
     ├── base.py             # Abstract base thread
     ├── input.py            # RTMP demuxer thread
-    ├── video.py            # Face detection thread (with consent capture)
+    ├── video.py            # Face detection/recognition thread (with consent capture)
     ├── audio.py            # Audio transcoding thread
     ├── vad.py              # Real-time VAD processing thread
     ├── speech_worker.py    # Background Whisper transcription thread (triggers consent)
@@ -56,7 +59,7 @@ filter/
 
 **Threading Model:**
 - **Input Thread**: Demuxes RTMP stream into video/audio queues
-- **Video Thread**: Processes frames with face detection/blurring and consent captures
+- **Video Thread**: Processes frames with face detection/recognition, selective blurring, and consent captures
 - **Audio Thread**: Transcodes audio to Opus for WebRTC
 - **VAD Thread**: Real-time Voice Activity Detection (non-blocking)
 - **Speech Worker Thread(s)**: Background Whisper transcription and consent detection
@@ -70,9 +73,15 @@ The transcription system uses a non-blocking architecture to prevent real-time d
 - Speech Worker Thread(s) consume segments and run Whisper inference in the background
 - Transcribed text is analyzed by a local LLM to detect explicit consent phrases
 - Consent detection identifies both the consent status and speaker's name when available
-- When consent is detected, the system captures a single unblurred frame before anonymization
-- Screenshots are saved to `./consent_captures/` with format `YYYYMMDDHHMMSS_[name].jpg`
 - This separation ensures VAD never waits for transcription, maintaining real-time performance
+
+**Face Recognition & Consent Management:**
+- When consent is detected, the system captures a head image of the largest face (assumed to be the speaker)
+- Face features are extracted using SFace model and stored in an in-memory database with the speaker's name
+- In subsequent frames, all detected faces are matched against the consented faces database
+- Recognized consented faces remain unblurred with green name labels displayed above them
+- Unrecognized faces continue to be blurred for privacy protection
+- Head images are saved to `./consent_captures/` with format `YYYYMMDDHHMMSS_[name]_head.jpg`
 
 Run these commands before committing changes:
 
