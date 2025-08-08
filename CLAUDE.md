@@ -12,7 +12,7 @@ This repository implements a privacy-preserving video processing system for smar
 
 ## Key Components
 
-### 0. Backend
+### 0. Backend (`./backend/`)
 
 Run these commands before committing changes:
 

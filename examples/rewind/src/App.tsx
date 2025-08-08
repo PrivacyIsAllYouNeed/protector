@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import WHEPClient from './components/WHEPClient'
 import RecordingsList from './components/RecordingsList'
 import RecordingPlayer from './components/RecordingPlayer'
+import ConsentList from './components/ConsentList'
 import type { Recording } from './services/recordings'
 import './components/WHEPClient.css'
 import './App.css'
@@ -97,9 +98,7 @@ function App() {
             <p className="panel-description">
               Manage individuals who have given consent to appear in recordings.
             </p>
-            <div className="coming-soon">
-              <span>Coming Soon</span>
-            </div>
+            <ConsentList />
           </section>
 
           <section className="recordings-panel">
