@@ -135,7 +135,11 @@ React/TypeScript application showcasing the privacy infrastructure:
 
 - Real-time WHEP video streaming display
 - Connection status monitoring
-- Privacy-first UI with consent management panels
+- Consent management UI integrated with Control API
+  - View list of consented individuals with their face images
+  - Display consent timestamp and person's name
+  - Revoke consent with confirmation dialog
+  - Auto-refresh consent list every 5 seconds
 - Recording playback with MediaMTX integration
   - View list of available recordings with timestamps and duration
   - Play recordings in modal with full video controls
