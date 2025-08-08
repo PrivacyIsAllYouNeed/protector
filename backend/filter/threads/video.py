@@ -1,4 +1,7 @@
 from typing import Optional
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from threads.base import BaseThread
 from misc.state import ThreadStateManager, ConnectionState, ConsentState
 from misc.types import VideoData, ProcessedVideoData
@@ -7,6 +10,7 @@ from misc.config import QUEUE_TIMEOUT, DISABLE_VIDEO_PROCESSING
 from misc.face_detector import FaceDetector
 from misc.consent_capture import ConsentCapture
 from misc.face_recognizer import get_face_recognizer
+from shared.consent_file_utils import sanitize_name
 
 
 class VideoProcessingThread(BaseThread):
@@ -85,8 +89,6 @@ class VideoProcessingThread(BaseThread):
                         feature = recognizer.extract_feature(bgr_frame, face_coords)
 
                         # Use sanitized name for consistency with file-based loading
-                        from misc.consent_file_utils import sanitize_name
-
                         name = sanitize_name(self.consent_state.speaker_name)
                         recognizer.add_consented_face(name, feature)
 

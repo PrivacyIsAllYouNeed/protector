@@ -5,12 +5,14 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 from watchfiles import watch, Change
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from misc.logging import get_logger
 from misc.config import MODEL_PATH, FACE_SCORE_THRESHOLD, FACE_NMS_THRESHOLD, FACE_TOP_K
 from misc.face_recognizer import get_face_recognizer
 from misc.state import ConsentState
-from misc.consent_file_utils import (
+from shared.consent_file_utils import (
     CONSENT_DIR,
     ensure_consent_dir_exists,
     parse_consent_filename,

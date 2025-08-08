@@ -9,16 +9,16 @@ File naming convention: YYYYMMDDHHMMSS_name.jpg
 - Remaining characters before .jpg: person's name (lowercase, alphanumeric + underscores)
 """
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
-from misc.logging import get_logger
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
-
+# Update BASE_DIR to point to backend directory since we're now in shared/
 BASE_DIR = Path(__file__).parent.parent
-CONSENT_DIR = BASE_DIR / "consent_captures"
+CONSENT_DIR = BASE_DIR / "filter" / "consent_captures"
 TIMESTAMP_LENGTH = 14
 FILE_EXTENSION = ".jpg"
 MIN_FILENAME_LENGTH = 19  # 14 (timestamp) + 1 (_) + 1 (min name) + 4 (.jpg)

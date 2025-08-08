@@ -2,6 +2,9 @@ from typing import Optional, Tuple, Any
 import cv2
 import numpy as np
 from numpy.typing import NDArray
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from misc.logging import get_logger
 from misc.config import (
     MODEL_PATH,
@@ -10,7 +13,7 @@ from misc.config import (
     FACE_TOP_K,
     HEAD_CAPTURE_PADDING_RATIO,
 )
-from misc.consent_file_utils import get_consent_filepath
+from shared.consent_file_utils import get_consent_filepath
 
 
 logger = get_logger(__name__)
