@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from typing import List
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -17,6 +18,15 @@ from shared.consent_file_utils import (
 )
 
 app = FastAPI(title="Privacy Filter Control API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ConsentInfo(BaseModel):
