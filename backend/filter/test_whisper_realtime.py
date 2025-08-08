@@ -8,13 +8,13 @@ as an individual WAV file.
 Usage examples
 --------------
     # Just transcribe (default)
-    python vad_transcribe.py talk.wav
+    python test_whisper_realtime.py talk.wav
 
     # Transcribe *and* save chunks
-    python vad_transcribe.py talk.wav --save-chunks
+    python test_whisper_realtime.py talk.wav --save-chunks
 
     # Custom output dir & GPU inference
-    python vad_transcribe.py talk.wav -o segs --save-chunks \
+    python test_whisper_realtime.py talk.wav -o segs --save-chunks \
         --device cuda --model medium
 """
 
