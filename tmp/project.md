@@ -20,8 +20,6 @@ This FastAPI-based backend provides an HTTP API for managing data operations.
 
 - Retrieve list of consenting individuals (name, face image)
 - Revoke consent
-- View list of recorded videos
-- Access and delete recorded videos
 
 Note: No database is used for now. All data is handled as files on disk.
 

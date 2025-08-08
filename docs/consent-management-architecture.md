@@ -51,73 +51,45 @@ If a person consents multiple times:
 - Filter loads all images for a person and uses all features for matching
 - This improves recognition accuracy across different angles/lighting
 
-## API Component (`./api/`)
+## API Component (`./backend/api/`)
 
 ### Endpoints
 
 The API provides RESTful endpoints for consent management:
 
-#### `GET /consent`
-Lists all consented individuals:
-- Reads all files from `./consent_captures/`
-- Parses filenames to extract names and timestamps
-- Returns JSON array of consent records
+#### `GET /consents`
+
+Lists all consented individuals.
+You should utilize `/backend/filter/misc/consent_file_utils.py`. Let's move it to `/backend/shared/` and do modify where necessary.
 
 Response example:
 ```json
 [
   {
     "name": "john_doe",
-    "timestamp": "2024-03-07T12:00:00",
-    "capture_file": "20240307120000_john_doe.jpg"
+    "time": unixtime here,
+    "id": "20240307120000_john_doe" // filename but without .jpg
   },
   {
-    "name": "jane_smith",
-    "timestamp": "2024-03-07T12:01:00",
-    "capture_file": "20240307120100_jane_smith.jpg"
+    "name": "unknown",
+    "time": unixtime here,
+    "id": "20240307120100_unknown"
   }
 ]
 ```
 
-#### `GET /consent/{name}`
-Gets consent status for a specific person:
-- Checks for files matching `*_{name}.jpg`
-- Returns consent details if found, 404 if not
-
-#### `DELETE /consent/{name}`
-Revokes consent for a person:
-- Finds all files matching `*_{name}.jpg`
-- Deletes the file(s)
-- Returns success/failure status
-- Filter detects deletion via watchfiles and updates immediately
-
-#### `GET /consent/{name}/capture`
+#### `GET /consents/{id}/image`
 Retrieves the captured face image:
 - Returns the JPEG image file for visual verification
-- Useful for consent management UIs
+    - You can use `FileResponse` from fastapi
+
+#### `DELETE /consents/{id}`
+Revokes consent for a person:
+- Deletes the image file
 
 ### File Operations
 
 The API performs simple filesystem operations:
-- **Read**: List/read files from `./consent_captures/`
+- **Read**: List/read files from `consent_captures/`
 - **Delete**: Remove files for revocation
 - No complex locking needed as operations are atomic
-- No database synchronization required
-
-## Implementation Notes
-
-### Filter Implementation
-- Initial consent capture happens in the Video Thread
-- Real-time consent additions are processed by the watchfiles monitor
-- Face feature extraction happens both during initial capture and when files are added
-- The in-memory consent database in `state.py` remains the single source of truth during runtime
-
-### API Implementation
-- Use FastAPI for the REST endpoints
-- Implement proper error handling for file operations
-- Add request validation and rate limiting
-- Consider adding authentication for production use
-
-### Shared Concerns
-- Both components must agree on the `./consent_captures/` directory location
-- File naming convention must remain consistent

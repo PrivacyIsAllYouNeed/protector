@@ -16,7 +16,6 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Update BASE_DIR to point to backend directory since we're now in shared/
 BASE_DIR = Path(__file__).parent.parent
 CONSENT_DIR = BASE_DIR / "filter" / "consent_captures"
 TIMESTAMP_LENGTH = 14

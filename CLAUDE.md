@@ -12,6 +12,21 @@ This repository implements a privacy-preserving video processing system for smar
 
 ## Key Components
 
+### 0. Backend
+
+Run these commands before committing changes:
+
+```bash
+# Run tests (currently no tests, skip this)
+# uv run pytest
+
+# Type checking
+uv run basedpyright
+
+# Linting & Formatting
+uv run ruff check --fix && uv run ruff format
+```
+
 ### 1. Privacy Filter (`./backend/filter/`)
 
 High-performance multi-threaded video processing pipeline with face anonymization and transcription:
@@ -96,40 +111,22 @@ The transcription system uses a non-blocking architecture to prevent real-time d
 - Recognized consented faces remain unblurred with green name labels displayed above them
 - Unrecognized faces continue to be blurred for privacy protection
 
-Run these commands before committing changes:
-
 ```bash
-# Run tests (currently no tests, skip this)
-# uv run pytest
-
-# Type checking
-uv run basedpyright
-
-# Linting & Formatting
-uv run ruff check --fix && uv run ruff format
+uv run filter/main.py
 ```
 
 ### 2. Control API (`./backend/api/`)
 
 FastAPI-based REST API for consent management and system control:
 
-**Features:**
-- Real-time consent management via filesystem operations
-- List all consented individuals with timestamps
-- Retrieve captured face images for verification
-- Revoke consent by deleting capture files
-- Seamless integration with filter's file-based consent system
-
 **Endpoints:**
-- `GET /` - Health check endpoint
 - `GET /consents` - List all consented individuals
 - `GET /consents/{id}/image` - Retrieve consent face image
 - `DELETE /consents/{id}` - Revoke consent for a person
 
 **Running the API:**
 ```bash
-cd backend
-uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+uv run fastapi dev api/main.py
 ```
 
 ### 3. Example App (`./examples/rewind/`)
