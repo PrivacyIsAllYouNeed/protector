@@ -34,7 +34,10 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 
 **Architecture:**
 ```
-backend/filter/
+backend/
+├─ shared/
+│  └─ consent_file_utils.py # Shared consent file naming and parsing utilities
+├─ filter/
 ├─ main.py                  # Entry point
 ├─ misc/
 │  ├─ pipeline.py           # Pipeline orchestrator
@@ -49,8 +52,7 @@ backend/filter/
 │  ├─ face_recognizer.py    # Face recognition module
 │  ├─ consent_detector.py   # LLM-based consent detection
 │  ├─ consent_capture.py    # Head image capture utility for consent
-│  ├─ consent_manager.py    # File-based consent management with monitoring
-│  └─ consent_file_utils.py # Consent file naming and parsing utilities
+│  └─ consent_manager.py    # File-based consent management with monitoring
 └─ threads/
     ├─ base.py              # Abstract base thread
     ├─ input.py             # RTMP demuxer thread
@@ -109,7 +111,26 @@ uv run ruff check --fix && uv run ruff format
 
 ### 2. Control API (`./backend/api/`)
 
-TODO
+FastAPI-based REST API for consent management and system control:
+
+**Features:**
+- Real-time consent management via filesystem operations
+- List all consented individuals with timestamps
+- Retrieve captured face images for verification
+- Revoke consent by deleting capture files
+- Seamless integration with filter's file-based consent system
+
+**Endpoints:**
+- `GET /` - Health check endpoint
+- `GET /consents` - List all consented individuals
+- `GET /consents/{id}/image` - Retrieve consent face image
+- `DELETE /consents/{id}` - Revoke consent for a person
+
+**Running the API:**
+```bash
+cd backend
+uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
 
 ### 3. Example App (`./examples/rewind/`)
 
