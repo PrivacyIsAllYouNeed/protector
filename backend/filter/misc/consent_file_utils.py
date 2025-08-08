@@ -17,7 +17,8 @@ from misc.logging import get_logger
 
 logger = get_logger(__name__)
 
-CONSENT_DIR = Path("./consent_captures")
+BASE_DIR = Path(__file__).parent.parent
+CONSENT_DIR = BASE_DIR / "consent_captures"
 TIMESTAMP_LENGTH = 14
 FILE_EXTENSION = ".jpg"
 MIN_FILENAME_LENGTH = 19  # 14 (timestamp) + 1 (_) + 1 (min name) + 4 (.jpg)

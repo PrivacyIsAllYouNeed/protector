@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+from pathlib import Path
 from typing import TypedDict
 from llama_cpp import Llama, llama_log_set
 from misc.logging import get_logger
@@ -27,9 +28,13 @@ class ConsentResult(TypedDict):
 
 
 class ConsentDetector:
-    def __init__(self, model_path: str = "./Phi-3.1-mini-4k-instruct-Q4_K_M.gguf"):
+    def __init__(self, model_path: str | None = None):
         self.logger = get_logger(self.__class__.__name__)
-        self.model_path = model_path
+        if model_path is None:
+            BASE_DIR = Path(__file__).parent.parent
+            self.model_path = str(BASE_DIR / "Phi-3.1-mini-4k-instruct-Q4_K_M.gguf")
+        else:
+            self.model_path = model_path
         self.llm: Llama | None = None
         self._initialize_model()
 

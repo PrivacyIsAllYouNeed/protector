@@ -20,7 +20,7 @@ Each file encodes all necessary information in its name:
 - **Name**: The person's name as detected from their consent phrase
 - **Image data**: The captured face image used for feature extraction
 
-## Filter Component (`./filter/`)
+## Filter Component (`./backend/filter/`)
 
 ### Startup Initialization
 

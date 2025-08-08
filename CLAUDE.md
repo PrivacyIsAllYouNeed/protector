@@ -6,13 +6,13 @@ This repository implements a privacy-preserving video processing system for smar
 
 ## Project Structure
 
-- `./filter/` - Real-time privacy filter implementation (Python)
+- `./backend/filter/` - Real-time privacy filter implementation (Python)
 - `./api/` - Control API server (FastAPI)
 - `./examples/rewind/` - Reference implementation and inspector UI (React/TypeScript)
 
 ## Key Components
 
-### 1. Privacy Filter (`./filter/`)
+### 1. Privacy Filter (`./backend/filter/`)
 
 High-performance multi-threaded video processing pipeline with face anonymization and transcription:
 
@@ -34,7 +34,7 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 
 **Architecture:**
 ```
-filter/
+backend/filter/
 ├─ main.py                  # Entry point
 ├─ misc/
 │  ├─ pipeline.py           # Pipeline orchestrator
