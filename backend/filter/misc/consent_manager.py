@@ -141,6 +141,7 @@ class ConsentManager:
                     break
 
                 if changes:  # changes can be None on timeout
+                    self.logger.debug(f"{len(changes)} changes detected")
                     for change_type, file_path in changes:
                         try:
                             self._handle_file_change(change_type, Path(file_path))
@@ -153,8 +154,15 @@ class ConsentManager:
             self.logger.error(f"Error in consent monitoring thread: {e}")
 
     def _handle_file_change(self, change_type: Change, file_path: Path) -> None:
-        if change_type == Change.added:
-            self._process_consent_file(file_path, is_startup=False)
+        if change_type == Change.added or change_type == Change.modified:
+            # Only process if file actually exists (watchfiles can report stale events)
+            if file_path.exists():
+                # For modified files, remove old features first
+                if change_type == Change.modified:
+                    self.face_recognizer.remove_consented_face_by_file(file_path)
+                self._process_consent_file(file_path, is_startup=False)
+            else:
+                self.logger.debug(f"Skipping non-existent file: {file_path.name}")
 
         elif change_type == Change.deleted:
             # Remove the specific face feature for this file
