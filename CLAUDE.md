@@ -7,7 +7,7 @@ This repository implements a privacy-preserving video processing system for smar
 ## Project Structure
 
 - `./backend/filter/` - Real-time privacy filter implementation (Python)
-- `./api/` - Control API server (FastAPI)
+- `./backend/api/` - Control API server (FastAPI)
 - `./examples/rewind/` - Reference implementation and inspector UI (React/TypeScript)
 
 ## Key Components
@@ -107,7 +107,7 @@ uv run basedpyright
 uv run ruff check --fix && uv run ruff format
 ```
 
-### 2. Control API (`./api/`)
+### 2. Control API (`./backend/api/`)
 
 TODO
 
