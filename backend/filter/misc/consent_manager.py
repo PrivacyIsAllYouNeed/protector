@@ -17,9 +17,7 @@ from shared.consent_file_utils import (
     CONSENT_DIR,
     ensure_consent_dir_exists,
     parse_consent_filename,
-    extract_name_from_path,
     list_all_consent_files,
-    find_consent_files_for_name,
 )
 
 logger = get_logger(__name__)
@@ -64,7 +62,7 @@ class ConsentManager:
 
         features = self._extract_face_features(image)
         if features is not None:
-            self.face_recognizer.add_consented_face(name, features)
+            self.face_recognizer.add_consented_face(name, features, file_path)
             self.consent_state.add_consented_name(name)
             if not is_startup:
                 self.logger.info(f"Added consent for: {name} from {file_path.name}")
@@ -159,29 +157,9 @@ class ConsentManager:
             self._process_consent_file(file_path, is_startup=False)
 
         elif change_type == Change.deleted:
-            # Extract name from the deleted file
-            name = extract_name_from_path(file_path)
-            if not name:
-                self.logger.warning(
-                    f"Could not extract name from deleted file: {file_path.name}"
-                )
-                return
-
-            # Check if there are other files for this person
-            other_files = find_consent_files_for_name(name)
-            if not other_files:
-                # No other consent files for this person, remove from database
-                self.face_recognizer.remove_consented_face(name)
-                self.consent_state.remove_consented_name(name)
-                self.logger.info(f"Revoked consent for: {name}")
-            else:
-                # Reload all remaining files for this person
-                self.logger.info(
-                    f"Reloading {len(other_files)} remaining files for {name}"
-                )
-                self.face_recognizer.remove_consented_face(name)
-                for other_file in other_files:
-                    self._process_consent_file(other_file, is_startup=False)
+            # Remove the specific face feature for this file
+            self.face_recognizer.remove_consented_face_by_file(file_path)
+            self.logger.info(f"Removed consent file: {file_path.name}")
 
 
 _consent_manager: Optional[ConsentManager] = None

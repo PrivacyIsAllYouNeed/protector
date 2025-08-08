@@ -91,7 +91,7 @@ class VideoProcessingThread(BaseThread):
 
                         # Use sanitized name for consistency with file-based loading
                         name = sanitize_name(self.consent_state.speaker_name)
-                        recognizer.add_consented_face(name, feature)
+                        recognizer.add_consented_face(name, feature, Path(capture_path))
 
                         self.logger.info(f"Added {name} to consented faces database")
                     except Exception as e:

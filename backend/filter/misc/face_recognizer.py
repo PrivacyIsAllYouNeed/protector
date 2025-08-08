@@ -1,5 +1,6 @@
 import threading
-from typing import Any, Optional, Dict, Tuple
+from typing import Any, Optional, Tuple, List
+from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 import cv2
@@ -29,7 +30,8 @@ class FaceRecognizer:
         self.logger.info("Face recognizer initialized with SFace model")
 
     def _init_database(self) -> None:
-        self.consented_faces: Dict[str, list[NDArray[np.float32]]] = {}
+        # Flat list of (file_path, name, feature) tuples
+        self.consented_faces: List[Tuple[Path, str, NDArray[np.float32]]] = []
         self.logger.info("Consented faces database initialized")
 
     def extract_feature(
@@ -39,44 +41,61 @@ class FaceRecognizer:
         feature = self.recognizer.feature(aligned)
         return feature
 
-    def add_consented_face(self, name: str, feature: NDArray[np.float32]) -> None:
+    def add_consented_face(
+        self, name: str, feature: NDArray[np.float32], file_path: Path
+    ) -> None:
         with self._lock:
             # Normalize name to lowercase for consistency
             name_lower = name.lower()
-            if name_lower not in self.consented_faces:
-                self.consented_faces[name_lower] = []
-            self.consented_faces[name_lower].append(feature)
+            # Check if this file already exists and remove it first
+            self.consented_faces = [
+                entry for entry in self.consented_faces if entry[0] != file_path
+            ]
+            # Add the new entry
+            self.consented_faces.append((file_path, name_lower, feature))
             self.logger.info(
-                f"Added consented face for: {name_lower} (total: {len(self.consented_faces[name_lower])})"
+                f"Added consented face for: {name_lower} from {file_path.name} (total faces: {len(self.consented_faces)})"
             )
 
-    def remove_consented_face(self, name: str) -> None:
+    def remove_consented_face_by_file(self, file_path: Path) -> None:
+        """Remove a specific face feature by file path."""
         with self._lock:
-            # Normalize name to lowercase for consistency
-            name_lower = name.lower()
-            if name_lower in self.consented_faces:
-                del self.consented_faces[name_lower]
-                self.logger.info(f"Removed all consent faces for: {name_lower}")
+            original_count = len(self.consented_faces)
+            self.consented_faces = [
+                entry for entry in self.consented_faces if entry[0] != file_path
+            ]
+            removed_count = original_count - len(self.consented_faces)
+
+            if removed_count > 0:
+                self.logger.info(
+                    f"Removed consent face from {file_path.name} (remaining: {len(self.consented_faces)})"
+                )
 
     def match_face(self, feature: NDArray[np.float32]) -> Tuple[bool, Optional[str]]:
         with self._lock:
-            for name, known_features in self.consented_faces.items():
-                for known_feature in known_features:
-                    cosine_score = self.recognizer.match(
-                        feature, known_feature, 0
-                    )  # FR_COSINE = 0
-                    l2_score = self.recognizer.match(
-                        feature, known_feature, 1
-                    )  # FR_NORM_L2 = 1
+            for _, name, known_feature in self.consented_faces:
+                cosine_score = self.recognizer.match(
+                    feature, known_feature, 0
+                )  # FR_COSINE = 0
+                l2_score = self.recognizer.match(
+                    feature, known_feature, 1
+                )  # FR_NORM_L2 = 1
 
-                    if cosine_score < COSINE_THRESHOLD or l2_score < L2_THRESHOLD:
-                        return True, name
+                if cosine_score < COSINE_THRESHOLD or l2_score < L2_THRESHOLD:
+                    return True, name
 
             return False, None
 
     def get_consented_count(self) -> int:
+        """Get the total number of consented face entries."""
         with self._lock:
             return len(self.consented_faces)
+
+    def get_unique_consented_count(self) -> int:
+        """Get the number of unique individuals with consent."""
+        with self._lock:
+            unique_names = set(entry[1] for entry in self.consented_faces)
+            return len(unique_names)
 
     def clear_database(self) -> None:
         with self._lock:
