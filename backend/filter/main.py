@@ -13,9 +13,7 @@ from misc.pipeline import Pipeline
 def main():
     logger = setup_logging()
 
-    logger.info("=" * 60)
     logger.info("Privacy Filter Service Starting")
-    logger.info("=" * 60)
 
     pipeline = Pipeline()
 
