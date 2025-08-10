@@ -1,4 +1,5 @@
 import av
+import gc
 from av.container import InputContainer
 from av.video.frame import VideoFrame
 from av.audio.frame import AudioFrame
@@ -119,10 +120,15 @@ class InputThread(BaseThread):
 
         if self.in_container:
             try:
+                # Close the container (this should handle stream cleanup internally)
                 self.in_container.close()
-            except Exception:
-                pass
-            self.in_container = None
+            except Exception as e:
+                self.logger.debug(f"Error during container cleanup: {e}")
+            finally:
+                # Force cleanup of the container object
+                self.in_container = None
+                # Force garbage collection to clean up any remaining references
+                gc.collect()
 
         self.connection_state.set_input_connected(False)
         self.logger.info("Publisher disconnected")
@@ -192,4 +198,6 @@ class InputThread(BaseThread):
 
     def cleanup(self):
         self._disconnect()
+        # Final garbage collection to ensure all resources are freed
+        gc.collect()
         self.logger.info("Input thread cleanup complete")
