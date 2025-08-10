@@ -8,12 +8,20 @@ IN_URL = os.getenv("FILTER_IN_URL", "rtmp://0.0.0.0:1935/live/stream")
 OUT_URL = os.getenv("FILTER_OUT_URL", "rtsp://127.0.0.1:8554/filtered")
 FPS = int(os.getenv("FILTER_FPS", "30"))
 
-FACE_BLUR_KERNEL = (51, 51)
-FACE_SCORE_THRESHOLD = float(os.getenv("FACE_SCORE_THRESHOLD", "0.7"))
+FACE_BLUR_KERNEL = (99, 99)
+FACE_SCORE_THRESHOLD = float(os.getenv("FACE_SCORE_THRESHOLD", "0.6"))
 FACE_NMS_THRESHOLD = float(os.getenv("FACE_NMS_THRESHOLD", "0.3"))
-FACE_TOP_K = int(os.getenv("FACE_TOP_K", "5000"))
+FACE_TOP_K = int(os.getenv("FACE_TOP_K", "500"))
 FACE_MIN_CONFIDENCE = float(os.getenv("FACE_MIN_CONFIDENCE", "0.5"))
-FACE_PADDING_RATIO = float(os.getenv("FACE_PADDING_RATIO", "0.1"))
+
+# Asymmetric face padding ratios for better coverage
+FACE_PADDING_TOP = float(os.getenv("FACE_PADDING_TOP", "0.5"))  # More padding for hair
+FACE_PADDING_BOTTOM = float(
+    os.getenv("FACE_PADDING_BOTTOM", "0.15")
+)  # Less padding for chin
+FACE_PADDING_LEFT = float(os.getenv("FACE_PADDING_LEFT", "0.25"))
+FACE_PADDING_RIGHT = float(os.getenv("FACE_PADDING_RIGHT", "0.25"))
+
 HEAD_CAPTURE_PADDING_RATIO = float(
     os.getenv("HEAD_CAPTURE_PADDING_RATIO", "0.3")
 )  # Larger padding for head captures

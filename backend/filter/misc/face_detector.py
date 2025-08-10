@@ -31,7 +31,10 @@ from misc.config import (
     FACE_NMS_THRESHOLD,
     FACE_TOP_K,
     FACE_MIN_CONFIDENCE,
-    FACE_PADDING_RATIO,
+    FACE_PADDING_TOP,
+    FACE_PADDING_BOTTOM,
+    FACE_PADDING_LEFT,
+    FACE_PADDING_RIGHT,
     FACE_CACHE_DURATION_MS,
 )
 
@@ -182,11 +185,11 @@ class FaceDetector:
                     cv2.putText(
                         bgr,
                         name,
-                        (x, max(y - 10, 20)),
+                        (x, max(y - 15, 25)),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8,
+                        1.2,
                         (0, 255, 0),
-                        2,
+                        3,
                         cv2.LINE_AA,
                     )
 
@@ -328,12 +331,22 @@ class FaceDetector:
     def _calculate_padded_bbox(
         self, x: float, y: float, w: float, h: float, img_width: int, img_height: int
     ) -> tuple[int, int, int, int]:
-        """Calculate padded bounding box coordinates with image boundary checks."""
-        padding = int(min(w, h) * FACE_PADDING_RATIO)
-        x1 = int(max(0, x - padding))
-        y1 = int(max(0, y - padding))
-        x2 = int(min(img_width - 1, x + w + padding))
-        y2 = int(min(img_height - 1, y + h + padding))
+        """Calculate padded bounding box coordinates with asymmetric padding."""
+        # Use face dimensions as base for calculating padding
+        base_size = min(w, h)
+
+        # Apply asymmetric padding
+        padding_top = int(base_size * FACE_PADDING_TOP)
+        padding_bottom = int(base_size * FACE_PADDING_BOTTOM)
+        padding_left = int(base_size * FACE_PADDING_LEFT)
+        padding_right = int(base_size * FACE_PADDING_RIGHT)
+
+        # Calculate padded coordinates with boundary checks
+        x1 = int(max(0, x - padding_left))
+        y1 = int(max(0, y - padding_top))
+        x2 = int(min(img_width - 1, x + w + padding_right))
+        y2 = int(min(img_height - 1, y + h + padding_bottom))
+
         return (x1, y1, x2, y2)
 
     def _apply_blur_to_faces(
