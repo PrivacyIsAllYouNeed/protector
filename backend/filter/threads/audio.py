@@ -82,8 +82,6 @@ class AudioProcessingThread(BaseThread):
             self.logger.info(
                 f"Audio resampler configured: {input_format}/{input_layout}/{input_rate}Hz -> s16/48kHz"
             )
-        else:
-            self.logger.info("Audio already at 48kHz, no resampling needed")
 
     def _transcode_frame(self, audio_data: AudioData) -> list[ProcessedAudioData]:
         frames_to_encode = [audio_data.frame]
