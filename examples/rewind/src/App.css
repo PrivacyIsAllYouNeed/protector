@@ -21,9 +21,42 @@
 }
 
 .subtitle {
-  margin: 0;
+  margin: 0 0 1.5rem;
   color: rgba(255, 255, 255, 0.7);
   font-size: 1.1rem;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tab-button {
+  padding: 0.75rem 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tab-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-button.active {
+  background: linear-gradient(135deg, rgba(100, 108, 255, 0.2), rgba(97, 218, 251, 0.2));
+  border: 1px solid rgba(100, 108, 255, 0.4);
+  color: white;
+  font-weight: 600;
 }
 
 .main-content {
@@ -175,6 +208,61 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   font-size: 0.85rem;
+}
+
+/* AI Tab Content */
+.ai-tab-content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 2rem;
+}
+
+.ai-chat-section {
+  max-width: 800px;
+  width: 100%;
+}
+
+.ai-chat-section h2 {
+  margin: 0 0 1rem;
+  font-size: 2rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.ai-description {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+  margin: 0 0 2rem;
+}
+
+.coming-soon-large {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.coming-soon-large span {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.coming-soon-large p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1rem;
+  margin: 0;
 }
 
 .app-footer {

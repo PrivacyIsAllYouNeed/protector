@@ -17,6 +17,7 @@ interface VideoStats {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState<'vault' | 'ai'>('vault')
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
   const [error, setError] = useState<string | null>(null)
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null)
@@ -66,94 +67,115 @@ function App() {
         <p className="subtitle">
           Real-time privacy-preserving video streaming with consent management
         </p>
+        <nav className="tab-navigation">
+          <button 
+            className={`tab-button ${activeTab === 'vault' ? 'active' : ''}`}
+            onClick={() => setActiveTab('vault')}
+          >
+            Vault
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'ai' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ai')}
+          >
+            AI
+          </button>
+        </nav>
       </header>
 
       <main className="main-content">
-        <section className="video-section">
-          <h2>Live Stream</h2>
+        {activeTab === 'vault' ? (
+          <>
+            <section className="video-section">
+              <h2>Live Stream</h2>
 
-          <WHEPClient
-            whepEndpoint={whepEndpoint}
-            onConnectionStateChange={handleConnectionStateChange}
-            onError={handleError}
-            onStatsUpdate={handleStatsUpdate}
-            className="main-video-player"
-          />
-        </section>
+              <WHEPClient
+                whepEndpoint={whepEndpoint}
+                onConnectionStateChange={handleConnectionStateChange}
+                onError={handleError}
+                onStatsUpdate={handleStatsUpdate}
+                className="main-video-player"
+              />
+            </section>
 
-        <aside className="sidebar">
-          <section className="connection-panel">
-            <h3>Connection Status</h3>
-            <div className="status-grid">
-              <div className="status-item">
-                <label>WebRTC State:</label>
-                <span className={`status-badge ${connectionState}`}>
-                  {connectionState}
-                </span>
-              </div>
-              <div className="status-item">
-                <label>Endpoint:</label>
-                <code className="endpoint">{whepEndpoint}</code>
-              </div>
-              {connectionState === 'connected' && (
-                <>
+            <aside className="sidebar">
+              <section className="recordings-panel">
+                <h3>Recordings</h3>
+                <p className="panel-description">
+                  View and manage saved video recordings.
+                </p>
+                <RecordingsList 
+                  onSelectRecording={handleSelectRecording}
+                  selectedRecording={selectedRecording}
+                  isStreamActive={connectionState === 'connected'}
+                />
+              </section>
+
+              <section className="consent-panel">
+                <h3>Consent Management</h3>
+                <p className="panel-description">
+                  Manage individuals who have given consent to appear in recordings.
+                </p>
+                <ConsentList />
+              </section>
+
+              <section className="connection-panel">
+                <h3>Connection Status</h3>
+                <div className="status-grid">
                   <div className="status-item">
-                    <label>Resolution:</label>
-                    <span>{videoStats.resolution.width ?? '—'} × {videoStats.resolution.height ?? '—'}</span>
+                    <label>WebRTC State:</label>
+                    <span className={`status-badge ${connectionState}`}>
+                      {connectionState}
+                    </span>
                   </div>
                   <div className="status-item">
-                    <label>FPS:</label>
-                    <span>{videoStats.fps?.toFixed(1) ?? '—'}</span>
+                    <label>Endpoint:</label>
+                    <code className="endpoint">{whepEndpoint}</code>
                   </div>
-                  <div className="status-item">
-                    <label>Frames:</label>
-                    <span>{videoStats.framesDecoded ?? '—'}</span>
-                  </div>
-                </>
-              )}
-            </div>
+                  {connectionState === 'connected' && (
+                    <>
+                      <div className="status-item">
+                        <label>Resolution:</label>
+                        <span>{videoStats.resolution.width ?? '—'} × {videoStats.resolution.height ?? '—'}</span>
+                      </div>
+                      <div className="status-item">
+                        <label>FPS:</label>
+                        <span>{videoStats.fps?.toFixed(1) ?? '—'}</span>
+                      </div>
+                      <div className="status-item">
+                        <label>Frames:</label>
+                        <span>{videoStats.framesDecoded ?? '—'}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
 
-            {error && (
-              <div className="error-panel">
-                <h4>Error</h4>
-                <p>{error}</p>
-                <button onClick={clearError} className="clear-error-btn">
-                  Clear
-                </button>
+                {error && (
+                  <div className="error-panel">
+                    <h4>Error</h4>
+                    <p>{error}</p>
+                    <button onClick={clearError} className="clear-error-btn">
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </section>
+            </aside>
+          </>
+        ) : (
+          <div className="ai-tab-content">
+            <section className="ai-chat-section">
+              <h2>AI Chat</h2>
+              <p className="ai-description">
+                Interact with AI assistant for video analysis and insights.
+              </p>
+              <div className="coming-soon-large">
+                <span>Coming Soon</span>
+                <p>AI-powered video analysis and chat features will be available here.</p>
               </div>
-            )}
-          </section>
-
-          <section className="consent-panel">
-            <h3>Consent Management</h3>
-            <p className="panel-description">
-              Manage individuals who have given consent to appear in recordings.
-            </p>
-            <ConsentList />
-          </section>
-
-          <section className="recordings-panel">
-            <h3>Recordings</h3>
-            <p className="panel-description">
-              View and manage saved video recordings.
-            </p>
-            <RecordingsList 
-              onSelectRecording={handleSelectRecording}
-              selectedRecording={selectedRecording}
-              isStreamActive={connectionState === 'connected'}
-            />
-          </section>
-
-          <section className="ai-chat-panel">
-            <h3>AI Chat</h3>
-            <p className="panel-description">
-              Interact with AI assistant for video analysis and insights.
-            </p>
-            <div className="coming-soon">
-              <span>Coming Soon</span>
-            </div>
-          </section>
-        </aside>
+            </section>
+          </div>
+        )}
       </main>
 
       <footer className="app-footer">
