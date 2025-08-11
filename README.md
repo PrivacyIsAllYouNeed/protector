@@ -2,7 +2,7 @@
 
 Build smart glasses apps without privacy concerns.
 
-IMG
+<img width="2784" height="1664" src="https://github.com/user-attachments/assets/ce34cdad-7dae-4798-b33e-8a614e618f8a" />
 
 Smart glasses apps face privacy hurdles. This real-time privacy filter sits between the camera and the app, automatically ensuring compliance.
 
@@ -22,7 +22,7 @@ Smart glasses apps face privacy hurdles. This real-time privacy filter sits betw
 
 ## Demo
 
-VID
+https://github.com/user-attachments/assets/42f0eee9-6366-4078-abc0-0226a8b8b1aa
 
 Using a smartphone as the camera. Smart glasses demos [here](https://x.com/caydengineer/status/1945236074961236481) and [here](https://x.com/s_diana_k/status/1944500312116723973).
 
