@@ -6,10 +6,12 @@ Build smart glasses apps without privacy concerns.
 
 Smart glasses apps face privacy hurdles. This real-time privacy filter sits between the camera and the app, automatically ensuring compliance.
 
+**How it works:** Replace your raw camera feed with our filtered stream. The filter processes live video, applies privacy protections, and outputs a compliant stream in real time. Use this processed stream for AI apps, social apps, or anything else.
+
 **Features:**
 
 - **Blurs faces** of non-consenting individuals
-- **Manages consent** (e.g., detects verbal consent such as “I consent to be captured” and remembers it)
+- **Manages consent** (e.g., detects verbal consent such as "I consent to be captured" and remembers it)
 - **Real-time processing** – 720p 30fps on laptop
 - **100% offline** – no cloud dependencies
 - **Recording**
