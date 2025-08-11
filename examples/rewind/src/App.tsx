@@ -63,18 +63,18 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Rewind - Privacy Video Stream</h1>
+        <h1>Example App: Rewind</h1>
         <p className="subtitle">
-          Real-time privacy-preserving video streaming with consent management
+          Using the privacy filter, this showcases live privacy-preserving streams, recordings, and consent management.
         </p>
         <nav className="tab-navigation">
-          <button 
+          <button
             className={`tab-button ${activeTab === 'vault' ? 'active' : ''}`}
             onClick={() => setActiveTab('vault')}
           >
             Vault
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'ai' ? 'active' : ''}`}
             onClick={() => setActiveTab('ai')}
           >
@@ -101,7 +101,7 @@ function App() {
             <aside className="sidebar">
               <section className="recordings-panel">
                 <h3>Recordings</h3>
-                <RecordingsList 
+                <RecordingsList
                   onSelectRecording={handleSelectRecording}
                   selectedRecording={selectedRecording}
                   isStreamActive={connectionState === 'connected'}
