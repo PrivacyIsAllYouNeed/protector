@@ -47,12 +47,6 @@
   font-weight: 500;
 }
 
-.section-description {
-  margin: 0 0 1.5rem;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
-}
-
 .sidebar {
   display: flex;
   flex-direction: column;

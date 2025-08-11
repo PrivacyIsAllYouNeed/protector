@@ -71,10 +71,6 @@ function App() {
       <main className="main-content">
         <section className="video-section">
           <h2>Live Stream</h2>
-          <p className="section-description">
-            Processed video stream with privacy protection. Faces are blurred by default
-            until explicit consent is given.
-          </p>
 
           <WHEPClient
             whepEndpoint={whepEndpoint}
