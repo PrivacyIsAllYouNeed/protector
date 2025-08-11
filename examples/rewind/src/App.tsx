@@ -109,10 +109,7 @@ function App() {
               </section>
 
               <section className="consent-panel">
-                <h3>Consent Management</h3>
-                <p className="panel-description">
-                  Manage individuals who have given consent to appear in recordings.
-                </p>
+                <h3>Consent</h3>
                 <ConsentList />
               </section>
 

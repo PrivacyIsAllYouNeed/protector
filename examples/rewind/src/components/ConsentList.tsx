@@ -88,8 +88,7 @@ function ConsentList() {
     return (
       <div className="consent-list">
         <div className="empty-state">
-          <p>No consents recorded yet</p>
-          <p className="hint">Consents are automatically detected when people explicitly agree to be recorded</p>
+          <p>No consents yet</p>
         </div>
       </div>
     )
