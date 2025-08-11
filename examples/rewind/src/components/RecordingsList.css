@@ -5,46 +5,10 @@
   min-height: 200px;
 }
 
-.recordings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 0.5rem;
-}
-
-.recordings-header h4 {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
-}
-
-.refresh-btn {
-  padding: 0.25rem 0.75rem;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .recordings-items {
   flex: 1;
   overflow-y: auto;
-  max-height: 300px;
+  max-height: 400px;
 }
 
 .recording-item {

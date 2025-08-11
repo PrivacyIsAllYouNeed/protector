@@ -101,9 +101,6 @@ function App() {
             <aside className="sidebar">
               <section className="recordings-panel">
                 <h3>Recordings</h3>
-                <p className="panel-description">
-                  View and manage saved video recordings.
-                </p>
                 <RecordingsList 
                   onSelectRecording={handleSelectRecording}
                   selectedRecording={selectedRecording}

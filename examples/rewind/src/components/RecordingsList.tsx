@@ -54,9 +54,6 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
     }
   }
 
-  const handleRefresh = () => {
-    fetchRecordings()
-  }
 
   // Filter out the last recording if stream is active (it's the current streaming session)
   const displayRecordings = isStreamActive && recordings.length > 0 
@@ -76,9 +73,6 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
       <div className="recordings-list">
         <div className="error">
           <p>Error: {error}</p>
-          <button onClick={handleRefresh} className="refresh-btn">
-            Retry
-          </button>
         </div>
       </div>
     )
@@ -89,9 +83,6 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
       <div className="recordings-list">
         <div className="empty-state">
           <p>{isStreamActive && recordings.length === 1 ? 'No completed recordings (current stream in progress)' : 'No recordings available'}</p>
-          <button onClick={handleRefresh} className="refresh-btn">
-            Refresh
-          </button>
         </div>
       </div>
     )
@@ -99,12 +90,6 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
 
   return (
     <div className="recordings-list">
-      <div className="recordings-header">
-        <h4>Available Recordings ({displayRecordings.length})</h4>
-        <button onClick={handleRefresh} className="refresh-btn" disabled={loading}>
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
       <div className="recordings-items">
         {displayRecordings.map((recording) => (
           <div
