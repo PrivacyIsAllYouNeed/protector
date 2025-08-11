@@ -47,6 +47,7 @@ Works with any camera-based app, for example:
 
 ## Roadmap
 
+- Integration guides for various smart glasses
 - Additional privacy filters (text, objects)
 - Speech anonymization
 - Location-based auto shutoff
