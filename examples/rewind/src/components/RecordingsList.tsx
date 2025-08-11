@@ -103,7 +103,7 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
                   {recordingsService.formatTimestamp(recording.start)}
                 </span>
                 <span className="recording-duration">
-                  • {recordingsService.formatDuration(recording.duration)}
+                  {recordingsService.formatDuration(recording.duration)}
                 </span>
               </div>
             </div>

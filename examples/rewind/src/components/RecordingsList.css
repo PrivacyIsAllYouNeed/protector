@@ -15,8 +15,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0.75rem;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.5rem;
   margin-bottom: 0.25rem;
   cursor: pointer;
@@ -24,15 +24,15 @@
 }
 
 .recording-item:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
   transform: translateX(2px);
 }
 
 .recording-item.selected {
-  background: #f0f9ff;
-  border-color: #60a5fa;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .recording-info {
@@ -43,22 +43,22 @@
 .recording-time {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #374151;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .recording-duration {
   font-size: 0.75rem;
-  color: #9ca3af;
-  margin-left: 0.5rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 0.75rem;
 }
 
 .delete-btn {
   width: 24px;
   height: 24px;
   padding: 0;
-  background: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
   font-size: 1rem;
   line-height: 1;
@@ -72,9 +72,9 @@
 }
 
 .delete-btn:hover:not(:disabled) {
-  background: #fee2e2;
-  color: #dc2626;
-  border-color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .delete-btn:disabled {
@@ -91,7 +91,7 @@
   justify-content: center;
   padding: 1rem;
   text-align: center;
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.5);
   font-size: 0.8125rem;
 }
 
