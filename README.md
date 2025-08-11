@@ -26,6 +26,10 @@ https://github.com/user-attachments/assets/42f0eee9-6366-4078-abc0-0226a8b8b1aa
 
 Using a smartphone as the camera. Smart glasses demos [here](https://x.com/caydengineer/status/1945236074961236481) and [here](https://x.com/s_diana_k/status/1944500312116723973).
 
+## Tech Stack
+
+Runs offline on a laptop. Built with FFmpeg (stream decode/encode), OpenCV (face recognition/blurring), Faster Whisper (voice transcription), and Phi-3.5 Mini (LLM for consent detection).
+
 ## Quick Start
 
 See the [backend README](./backend/README.md), [example app README](./examples/rewind/README.md), and [CLAUDE.md](./CLAUDE.md) for technical details.
