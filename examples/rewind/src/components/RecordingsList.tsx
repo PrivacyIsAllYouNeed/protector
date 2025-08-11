@@ -108,12 +108,18 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
               </div>
             </div>
             <button
-              className="delete-btn"
+              className="recording-delete-btn"
               onClick={(e) => handleDelete(recording, e)}
               disabled={deletingId === recording.start}
               title="Delete recording"
             >
-              {deletingId === recording.start ? '...' : '×'}
+              {deletingId === recording.start ? (
+                <span style={{ fontSize: '0.75rem' }}>...</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
             </button>
           </div>
         ))}
