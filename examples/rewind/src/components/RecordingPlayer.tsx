@@ -13,6 +13,8 @@ function RecordingPlayer({ recording }: RecordingPlayerProps) {
   useEffect(() => {
     if (videoRef.current && recording) {
       videoRef.current.load()
+      // Set default volume to 30%
+      videoRef.current.volume = 0.3
     }
   }, [recording])
 
