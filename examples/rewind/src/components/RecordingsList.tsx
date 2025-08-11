@@ -98,11 +98,13 @@ function RecordingsList({ onSelectRecording, selectedRecording, isStreamActive }
             onClick={() => onSelectRecording(recording)}
           >
             <div className="recording-info">
-              <div className="recording-time">
-                {recordingsService.formatTimestamp(recording.start)}
-              </div>
-              <div className="recording-duration">
-                Duration: {recordingsService.formatDuration(recording.duration)}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="recording-time">
+                  {recordingsService.formatTimestamp(recording.start)}
+                </span>
+                <span className="recording-duration">
+                  • {recordingsService.formatDuration(recording.duration)}
+                </span>
               </div>
             </div>
             <button
