@@ -81,7 +81,7 @@ class FaceRecognizer:
                     feature, known_feature, 1
                 )  # FR_NORM_L2 = 1
 
-                if cosine_score < COSINE_THRESHOLD or l2_score < L2_THRESHOLD:
+                if cosine_score >= COSINE_THRESHOLD or l2_score <= L2_THRESHOLD:
                     return True, name
 
             return False, None
