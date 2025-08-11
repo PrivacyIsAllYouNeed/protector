@@ -54,13 +54,7 @@ function ConsentList() {
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000)
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    return date.toLocaleString()
   }
 
   if (loading && consents.length === 0) {
@@ -96,13 +90,6 @@ function ConsentList() {
 
   return (
     <div className="consent-list">
-      <div className="consent-header">
-        <span className="consent-count">{consents.length} person{consents.length !== 1 ? 's' : ''}</span>
-        <button onClick={fetchConsents} className="refresh-btn" disabled={loading}>
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
-      
       <div className="consent-items">
         {consents.map((consent) => (
           <div key={consent.id} className="consent-item">
@@ -119,12 +106,18 @@ function ConsentList() {
               <div className="consent-time">{formatDate(consent.time)}</div>
             </div>
             <button 
-              className="delete-btn"
+              className="consent-delete-btn"
               onClick={() => handleDelete(consent.id, consent.name)}
               disabled={deletingIds.has(consent.id)}
               title="Revoke consent"
             >
-              {deletingIds.has(consent.id) ? '...' : '×'}
+              {deletingIds.has(consent.id) ? (
+                <span style={{ fontSize: '0.75rem' }}>...</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
             </button>
           </div>
         ))}

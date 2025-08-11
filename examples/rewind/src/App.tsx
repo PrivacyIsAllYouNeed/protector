@@ -109,7 +109,7 @@ function App() {
               </section>
 
               <section className="consent-panel">
-                <h3>Consent</h3>
+                <h3>Consents</h3>
                 <ConsentList />
               </section>
 
