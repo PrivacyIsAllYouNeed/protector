@@ -332,31 +332,6 @@ export const WHEPClient: React.FC<WHEPClientProps> = ({
           </div>
         )}
       </div>
-      
-      {/* Connection info */}
-      <div className="connection-info">
-        <span className={`status ${state.connectionState}`}>
-          Status: {state.connectionState}
-        </span>
-      </div>
-
-      {/* Video stats */}
-      {state.connectionState === 'connected' && (
-        <div className="video-stats">
-          <div className="stat-item">
-            <label>RES:</label>
-            <span>{state.stats.resolution.width ?? '—'} × {state.stats.resolution.height ?? '—'}</span>
-          </div>
-          <div className="stat-item">
-            <label>FPS:</label>
-            <span>{state.stats.fps?.toFixed(1) ?? '—'}</span>
-          </div>
-          <div className="stat-item">
-            <label>DECODED:</label>
-            <span>{state.stats.framesDecoded ?? '—'} frames</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

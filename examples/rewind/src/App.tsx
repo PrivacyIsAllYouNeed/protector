@@ -7,11 +7,25 @@ import type { Recording } from './services/recordings'
 import './components/WHEPClient.css'
 import './App.css'
 
+interface VideoStats {
+  resolution: {
+    width: number | null;
+    height: number | null;
+  };
+  fps: number | null;
+  framesDecoded: number | null;
+}
+
 function App() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
   const [error, setError] = useState<string | null>(null)
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null)
   const [showRecordingPlayer, setShowRecordingPlayer] = useState(false)
+  const [videoStats, setVideoStats] = useState<VideoStats>({
+    resolution: { width: null, height: null },
+    fps: null,
+    framesDecoded: null
+  })
 
   // WHEP endpoint configuration (port 8889 as specified in requirements)
   const whepEndpoint = 'http://localhost:8889/filtered/whep'
@@ -24,6 +38,10 @@ function App() {
   const handleError = useCallback((err: Error) => {
     setError(err.message)
     console.error('WHEP Client Error:', err)
+  }, [])
+
+  const handleStatsUpdate = useCallback((stats: VideoStats) => {
+    setVideoStats(stats)
   }, [])
 
   const clearError = useCallback(() => {
@@ -62,6 +80,7 @@ function App() {
             whepEndpoint={whepEndpoint}
             onConnectionStateChange={handleConnectionStateChange}
             onError={handleError}
+            onStatsUpdate={handleStatsUpdate}
             className="main-video-player"
           />
         </section>
@@ -80,6 +99,22 @@ function App() {
                 <label>Endpoint:</label>
                 <code className="endpoint">{whepEndpoint}</code>
               </div>
+              {connectionState === 'connected' && (
+                <>
+                  <div className="status-item">
+                    <label>Resolution:</label>
+                    <span>{videoStats.resolution.width ?? '—'} × {videoStats.resolution.height ?? '—'}</span>
+                  </div>
+                  <div className="status-item">
+                    <label>FPS:</label>
+                    <span>{videoStats.fps?.toFixed(1) ?? '—'}</span>
+                  </div>
+                  <div className="status-item">
+                    <label>Frames:</label>
+                    <span>{videoStats.framesDecoded ?? '—'}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {error && (
