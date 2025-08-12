@@ -60,9 +60,9 @@ class ConsentManager:
             self.logger.error(f"Failed to load image: {file_path}")
             return
 
-        features = self._extract_face_features(image)
-        if features is not None:
-            self.face_recognizer.add_consented_face(name, features, file_path)
+        encoding = self._extract_face_features(image)
+        if encoding is not None:
+            self.face_recognizer.add_consented_face(name, encoding, file_path)
             self.consent_state.add_consented_name(name)
             if not is_startup:
                 self.logger.info(f"Added consent for: {name} from {file_path.name}")
@@ -71,7 +71,7 @@ class ConsentManager:
 
     def _extract_face_features(
         self, image: NDArray[Any]
-    ) -> Optional[NDArray[np.float32]]:
+    ) -> Optional[NDArray[np.float64]]:
         h, w = image.shape[:2]
 
         detector: Any = cv2.FaceDetectorYN.create(

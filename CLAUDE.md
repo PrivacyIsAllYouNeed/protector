@@ -34,7 +34,7 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 **Features:**
 - Receives RTMP input streams with video and audio
 - Detects and blurs faces using YuNet neural network
-- Face recognition for consented users using SFace neural network
+- Face recognition for consented users using face_recognition library
 - Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
 - Automatic consent detection from transcribed speech using local LLM
 - Consent-triggered head image capture and face feature extraction
@@ -105,7 +105,7 @@ The transcription system uses a non-blocking architecture to prevent real-time d
 - File system monitoring via watchfiles detects real-time consent changes:
   - Adding a file grants consent for that person
   - Deleting a file revokes consent for that person
-- Face features are extracted using SFace model and stored in an in-memory database
+- Face features are extracted using face_recognition library (128-dimensional encodings) and stored in an in-memory database
 - Multiple captures per person are supported for improved recognition accuracy
 - In subsequent frames, all detected faces are matched against the consented faces database
 - Recognized consented faces remain unblurred with green name labels displayed above them

@@ -31,8 +31,8 @@ uv sync
 # Face detection model
 wget -P ./filter https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 
-# Face recognition model
-wget -P ./filter https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+# Face recognition library is installed via pip (face_recognition)
+# No model download needed - uses dlib's pre-trained models
 
 # LLM for consent detection
 hf download lmstudio-community/Phi-3.1-mini-4k-instruct-GGUF Phi-3.1-mini-4k-instruct-Q4_K_M.gguf --local-dir ./filter

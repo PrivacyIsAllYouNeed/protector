@@ -87,13 +87,21 @@ class VideoProcessingThread(BaseThread):
                 if capture_path and face_coords is not None:
                     try:
                         recognizer = get_face_recognizer()
-                        feature = recognizer.extract_feature(bgr_frame, face_coords)
+                        encoding = recognizer.extract_feature(bgr_frame, face_coords)
 
-                        # Use sanitized name for consistency with file-based loading
-                        name = sanitize_name(self.consent_state.speaker_name)
-                        recognizer.add_consented_face(name, feature, Path(capture_path))
-
-                        self.logger.info(f"Added {name} to consented faces database")
+                        if encoding is not None:
+                            # Use sanitized name for consistency with file-based loading
+                            name = sanitize_name(self.consent_state.speaker_name)
+                            recognizer.add_consented_face(
+                                name, encoding, Path(capture_path)
+                            )
+                            self.logger.info(
+                                f"Added {name} to consented faces database"
+                            )
+                        else:
+                            self.logger.warning(
+                                "Failed to extract face encoding from captured image"
+                            )
                     except Exception as e:
                         self.logger.error(
                             f"Failed to add face to recognition database: {e}"

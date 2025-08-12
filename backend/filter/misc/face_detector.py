@@ -169,8 +169,11 @@ class FaceDetector:
 
             if recognizer and recognizer.get_consented_count() > 0:
                 try:
-                    feature = recognizer.extract_feature(bgr, face_coords)
-                    is_recognized, name = recognizer.match_face(feature)
+                    encoding = recognizer.extract_feature(bgr, face_coords)
+                    if encoding is not None:
+                        is_recognized, name = recognizer.match_face(encoding)
+                    else:
+                        self.logger.debug(f"Could not extract encoding for face {i}")
                 except Exception as e:
                     self.logger.debug(f"Face recognition failed for face {i}: {e}")
 
