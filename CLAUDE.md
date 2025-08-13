@@ -33,7 +33,9 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 
 **Features:**
 - Receives RTMP input streams with video and audio
-- Detects and blurs faces using YuNet neural network
+- Detects and anonymizes faces using YuNet neural network
+  - Supports two modes: Gaussian blur (default) or solid ellipse masking
+  - Configure via `FACE_ANONYMIZATION_MODE` environment variable: `"blur"` or `"solid_ellipse"`
 - Face recognition for consented users using face_recognition library
 - Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
 - Automatic consent detection from transcribed speech using local LLM
@@ -41,7 +43,7 @@ High-performance multi-threaded video processing pipeline with face anonymizatio
 - File-based consent management with real-time monitoring using watchfiles
 - Automatic loading of existing consent files on startup
 - Dynamic consent addition/revocation through file system changes
-- Selective face blurring - consented faces remain unblurred with name labels
+- Selective face anonymization - consented faces remain visible with name labels
 - Outputs to RTSP with preserved audio
 - MediaMTX exposes WebRTC stream for consumption and records video
 - Multi-threaded architecture with queue-based communication
@@ -81,7 +83,7 @@ backend/
 
 **Threading Model:**
 - **Input Thread**: Demuxes RTMP stream into video/audio queues
-- **Video Thread**: Processes frames with face detection/recognition, selective blurring, and consent captures
+- **Video Thread**: Processes frames with face detection/recognition, selective anonymization, and consent captures
 - **Audio Thread**: Transcodes audio to Opus for WebRTC
 - **VAD Thread**: Real-time Voice Activity Detection (non-blocking)
 - **Speech Worker Thread(s)**: Background Whisper transcription and consent detection
@@ -108,11 +110,15 @@ The transcription system uses a non-blocking architecture to prevent real-time d
 - Face features are extracted using face_recognition library (128-dimensional encodings) and stored in an in-memory database
 - Multiple captures per person are supported for improved recognition accuracy
 - In subsequent frames, all detected faces are matched against the consented faces database
-- Recognized consented faces remain unblurred with green name labels displayed above them
-- Unrecognized faces continue to be blurred for privacy protection
+- Recognized consented faces remain visible with green name labels displayed above them
+- Unrecognized faces are anonymized (blurred or masked) for privacy protection
 
 ```bash
+# Default: Gaussian blur
 uv run filter/main.py
+
+# Alternative: Solid ellipse masking (fits face shape)
+FACE_ANONYMIZATION_MODE=solid_ellipse uv run filter/main.py
 ```
 
 ### 2. Control API (`./backend/api/`)
