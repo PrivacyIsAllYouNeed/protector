@@ -10,7 +10,7 @@ Smart glasses apps face privacy hurdles. This real-time privacy filter sits betw
 
 **Features:**
 
-- **Blurs faces** of non-consenting individuals
+- **Anonymizes faces** of non-consenting individuals (configurable: blur or solid ellipse masking)
 - **Manages consent** (e.g., detects verbal consent such as "I consent to be captured" and remembers it)
 - **Real-time processing** – 720p 30fps on laptop
 - **100% offline** – no cloud dependencies
@@ -30,7 +30,7 @@ Using a smartphone as the camera. Smart glasses demos [here](https://x.com/cayde
 
 ## Tech Stack
 
-Runs offline on a laptop. Built with FFmpeg (stream decode/encode), OpenCV (face recognition/blurring), Faster Whisper (voice transcription), and Phi-3.5 Mini (LLM for consent detection).
+Runs offline on a laptop. Built with FFmpeg (stream decode/encode), OpenCV (face detection/anonymization), Faster Whisper (voice transcription), and Phi-3.5 Mini (LLM for consent detection).
 
 ## Quick Start
 
@@ -43,7 +43,7 @@ Works with any camera-based app, for example:
 - **AI Assistants** – Memory augmentation without privacy risks
 - **Social Apps** – Live streaming with automatic protection
 - **Enterprise** – Compliant workplace recording
-- **Content Creation** – Automatic face blurring for vlogs
+- **Content Creation** – Automatic face anonymization for vlogs
 
 ## Roadmap
 

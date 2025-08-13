@@ -27,6 +27,7 @@ from misc.face_recognizer import get_face_recognizer
 from misc.config import (
     MODEL_PATH,
     FACE_BLUR_KERNEL,
+    FACE_ANONYMIZATION_MODE,
     FACE_SCORE_THRESHOLD,
     FACE_NMS_THRESHOLD,
     FACE_TOP_K,
@@ -179,7 +180,7 @@ class FaceDetector:
 
             if not is_recognized:
                 rectangle = self._calculate_padded_bbox(x, y, face_w, face_h, w, h)
-                self._blur_region(bgr, *rectangle)
+                self._anonymize_region(bgr, *rectangle)
                 blurred_count += 1
             else:
                 recognized_faces.append({"bbox": (x, y, face_w, face_h), "name": name})
@@ -356,18 +357,27 @@ class FaceDetector:
         self, bgr: NDArray[Any], face_rectangles: list[tuple[int, int, int, int]]
     ) -> NDArray[Any]:
         """
-        Apply Gaussian blur to detected face regions.
+        Apply anonymization (blur or solid ellipse) to detected face regions.
 
         Args:
             bgr: BGR image array
             face_rectangles: List of (x1, y1, x2, y2) face rectangles
 
         Returns:
-            Image with faces blurred
+            Image with faces anonymized
         """
         for x1, y1, x2, y2 in face_rectangles:
-            self._blur_region(bgr, x1, y1, x2, y2)
+            self._anonymize_region(bgr, x1, y1, x2, y2)
         return bgr
+
+    def _anonymize_region(
+        self, bgr: NDArray[Any], x1: int, y1: int, x2: int, y2: int
+    ) -> None:
+        """Apply anonymization (blur or solid ellipse) to a specific region."""
+        if FACE_ANONYMIZATION_MODE == "solid_ellipse":
+            self._fill_solid_ellipse(bgr, x1, y1, x2, y2)
+        else:  # default to blur
+            self._blur_region(bgr, x1, y1, x2, y2)
 
     def _blur_region(
         self, bgr: NDArray[Any], x1: int, y1: int, x2: int, y2: int
@@ -377,6 +387,24 @@ class FaceDetector:
         if roi.size > 0:
             roi_blurred = cv2.GaussianBlur(roi, FACE_BLUR_KERNEL, 0)
             bgr[y1:y2, x1:x2] = roi_blurred
+
+    def _fill_solid_ellipse(
+        self, bgr: NDArray[Any], x1: int, y1: int, x2: int, y2: int
+    ) -> None:
+        """Fill a solid opaque ellipse over the face region."""
+        # Calculate center of the region
+        center_x = (x1 + x2) // 2
+        center_y = (y1 + y2) // 2
+
+        # Calculate ellipse axes based on face dimensions
+        width = x2 - x1
+        height = y2 - y1
+
+        # Use half dimensions for ellipse axes (axes are radii, not diameters)
+        axes = (width // 2, height // 2)
+
+        # Draw filled solid ellipse (opaque mask)
+        cv2.ellipse(bgr, (center_x, center_y), axes, 0, 0, 360, (0, 0, 0), -1)
 
 
 # Global face detector instance

@@ -9,6 +9,9 @@ OUT_URL = os.getenv("FILTER_OUT_URL", "rtsp://127.0.0.1:8554/filtered")
 FPS = int(os.getenv("FILTER_FPS", "30"))
 
 FACE_BLUR_KERNEL = (99, 99)
+FACE_ANONYMIZATION_MODE = os.getenv(
+    "FACE_ANONYMIZATION_MODE", "blur"
+)  # "blur" or "solid_ellipse"
 FACE_SCORE_THRESHOLD = float(os.getenv("FACE_SCORE_THRESHOLD", "0.6"))
 FACE_NMS_THRESHOLD = float(os.getenv("FACE_NMS_THRESHOLD", "0.3"))
 FACE_TOP_K = int(os.getenv("FACE_TOP_K", "500"))
