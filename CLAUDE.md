@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository implements a privacy-preserving video processing system for smart glasses and similar applications. It provides real-time face anonymization with consent management, allowing developers to build applications without privacy concerns.
+A privacy-preserving video processing system for smart glasses and similar devices. Provides real-time face anonymization with consent management, enabling privacy-compliant applications.
 
 ## Project Structure
 
@@ -10,44 +10,38 @@ This repository implements a privacy-preserving video processing system for smar
 - `./backend/api/` - Control API server (FastAPI)
 - `./examples/rewind/` - Reference implementation and inspector UI (React/TypeScript)
 
-## Key Components
+## Development Guidelines
 
-### 0. Backend (`./backend/`)
+### Backend Python (`./backend/`)
 
-Run these commands before committing changes:
+Before committing, run quality checks:
 
 ```bash
-# Run tests (currently no tests, skip this)
-# uv run pytest
-
 # Type checking
 uv run basedpyright
 
-# Linting & Formatting
+# Linting & formatting
 uv run ruff check --fix && uv run ruff format
 ```
 
 ### 1. Privacy Filter (`./backend/filter/`)
 
-High-performance multi-threaded video processing pipeline with face anonymization and transcription:
+Multi-threaded video processing pipeline with face anonymization and transcription:
 
 **Features:**
 - Receives RTMP input streams with video and audio
-- Detects and anonymizes faces using YuNet neural network
-  - Supports two modes: Gaussian blur (default) or solid ellipse masking
-  - Configure via `FACE_ANONYMIZATION_MODE` environment variable: `"blur"` or `"solid_ellipse"`
+- Detects and anonymizes (blur or solid mask) faces using YuNet neural network
 - Face recognition for consented users using face_recognition library
-- Real-time speech transcription using separated VAD and Whisper threads for non-blocking processing
-- Automatic consent detection from transcribed speech using local LLM
-- Consent-triggered head image capture and face feature extraction
+- Speech transcription using VAD and Faster Whisper
+- Automatic consent detection from transcribed speech using local LLM Phi-3.5 Mini
 - File-based consent management with real-time monitoring using watchfiles
 - Automatic loading of existing consent files on startup
 - Dynamic consent addition/revocation through file system changes
 - Selective face anonymization - consented faces remain visible with name labels
-- Outputs to RTSP with preserved audio
+- Outputs to RTSP
 - MediaMTX exposes WebRTC stream for consumption and records video
 - Multi-threaded architecture with queue-based communication
-- Graceful shutdown and comprehensive health monitoring
+- Graceful shutdown and health monitoring
 
 **Architecture:**
 ```
@@ -150,7 +144,7 @@ React/TypeScript application showcasing the privacy infrastructure:
   - View list of available recordings with timestamps and duration
   - Play recordings in modal with full video controls
   - Delete recordings with confirmation
-  - Auto-refresh recording list every 10 seconds
+  - Auto-refresh recording list
 - AI chat integration (planned)
 
 Run these commands before committing changes:
@@ -163,6 +157,6 @@ npm run build
 npm run lint
 ```
 
-## Tips
+## Additional Notes
 
-- You can run Python like: `uv run python foo.py`
+- Python commands use `uv run` (e.g., `uv run python script.py`)

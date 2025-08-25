@@ -47,6 +47,8 @@ Works with any camera-based app, for example:
 
 ## Roadmap
 
+This project is under active development.
+
 - Integration guides for various smart glasses
 - Additional privacy filters (text, objects)
 - Speech anonymization
@@ -55,6 +57,7 @@ Works with any camera-based app, for example:
 - VLM integration
 - Active speaker detection
 - More input protocols (currently RTMP)
+- Deployment guide
 - etc.
 
 ## Contributing
