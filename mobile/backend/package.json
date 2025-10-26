@@ -8,5 +8,8 @@
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   }
 }
