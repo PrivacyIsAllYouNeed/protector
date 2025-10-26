@@ -12,6 +12,7 @@
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^13.0.0",
     "expo": "~54.0.20",
+    "expo-camera": "~17.0.8",
     "expo-constants": "~18.0.10",
     "expo-dev-client": "~6.0.16",
     "expo-linking": "~8.0.8",
