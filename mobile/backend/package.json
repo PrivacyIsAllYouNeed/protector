@@ -1,7 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "format": "prettier '**/*.ts' --write"
   },
   "dependencies": {
     "@types/node": "^22.18.12",
