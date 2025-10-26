@@ -1,13 +1,13 @@
 {
   "name": "client",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "lint": "expo lint"
+    "prebuild": "expo prebuild --clean --platform ios",
+    "ios": "expo run:ios --device",
+    "android": "echo 'unimplemented'",
+    "typecheck": "tsc",
+    "lint": "expo lint --fix"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^13.0.0",
