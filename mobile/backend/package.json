@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/node": "^22.18.12",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3",
+    "ws": "^8.18.3"
+  }
+}
