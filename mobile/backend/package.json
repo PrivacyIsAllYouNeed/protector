@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc"
+  },
   "dependencies": {
     "@types/node": "^22.18.12",
     "@types/ws": "^8.18.1",
