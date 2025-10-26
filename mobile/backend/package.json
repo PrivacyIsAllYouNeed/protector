@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "dependencies": {
     "@types/node": "^22.18.12",
     "@types/ws": "^8.18.1",
