@@ -8,7 +8,6 @@
 * **react-native-webrtc** with Expo config plugin. ([GitHub][3])
 * **expo-camera** to capture a photo and export Base64. ([Expo Documentation][4])
 * Server exposes `POST /session` that forwards the SDP offer to `https://api.openai.com/v1/realtime/calls` with `FormData { sdp, session }` and returns the **answer SDP**. The same server opens **Sideband** WS using `wss://api.openai.com/v1/realtime?call_id=...` for tools. ([OpenAI Platform][1])
-* Realtime events use GA names: `response.text.delta/.done`, `conversation.item.input_audio_transcription.completed`, function calling via `response.function_call_arguments.*`, tool output via `conversation.item.create` with `type:"function_call_output"`, then `response.create`. ([Microsoft Learn][5])
 * Enable input transcription in session: `input_audio_transcription: { model: "whisper-1" }`. ([Microsoft Learn][6])
 * Vision inputs use content parts `[{"type":"input_text"}, {"type":"input_image","image_url":"data:image/jpeg;base64,..."}]`. ([GitHub][7])
 
@@ -27,60 +26,7 @@
 
 ## 3) Install and configure
 
-**Dependencies**
-
-```bash
-# inside your Expo app
-npx expo install react-native-webrtc expo-camera expo-dev-client
-npm i @config-plugins/react-native-webrtc
-```
-
-* Build with **Dev Client** or EAS; Expo Go is not supported for WebRTC. ([Expo Documentation][9])
-
-**app.json**
-
-```json
-{
-  "expo": {
-    "name": "realtime-expo",
-    "slug": "realtime-expo",
-    "scheme": "realtimeexpo",
-    "ios": { "bundleIdentifier": "com.example.realtimeexpo" },
-    "android": { "package": "com.example.realtimeexpo", "permissions": [] },
-    "plugins": [
-      [
-        "@config-plugins/react-native-webrtc",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
-          "recordAudioAndroid": true
-        }
-      ],
-      ["expo-dev-client", { "launchMode": "most-recent" }]
-    ],
-    "extra": {
-      "SERVER_BASE_URL": "http://10.0.2.2:3000"  // Android emulator; change for device
-    }
-  }
-}
-```
-
-* If Android build fails on minSdk, set minSdkVersion ≥ 24 via expo-build-properties. ([Stream][10])
-
-**Build**
-
-```bash
-npx expo prebuild
-npx expo run:ios   # or
-npx expo run:android
-```
+Already setup
 
 ## 4) Project structure
 
@@ -116,8 +62,8 @@ export default function App() {
 // A thin Realtime WebRTC client for OpenAI.
 // - WebRTC PC + mic track, data channel `oai-events`
 // - POST SDP offer to your server /session -> get answer SDP
-// - Handle GA Realtime events: response.text.delta/.done, user transcription, etc.
-// Event names and shapes follow GA docs. See:
+// - Handle Realtime events: response.text.delta/.done, user transcription, etc.
+// Event names and shapes follow docs. See:
 //   - WebRTC call creation via /v1/realtime/calls
 //   - Server events like response.text.delta, response.function_call_arguments.*
 //   - Sideband WS is handled on your server (tools), not here.
@@ -273,7 +219,7 @@ export default class OpenAIRealtimeClient {
     this.dc.send(JSON.stringify(ev2));
   }
 
-  // Parse GA server events
+  // Parse server events
   private handleServerMessage(raw: string) {
     let msg: any;
     try {
@@ -543,21 +489,16 @@ export default function VoiceChatScreen() {
 }
 ```
 
-## 6) Server changes (Sideband tools, latest endpoints)
+## 6) Server
 
-### What changes from your snippet
-
-* Keep **`POST /session` → `https://api.openai.com/v1/realtime/calls`** with `FormData { sdp, session }`.
-* After reading `Location` header → extract `call_id` → open **Sideband WS** `wss://api.openai.com/v1/realtime?call_id=...` with `Authorization: Bearer` header. ([OpenAI Platform][1])
 * On WS open: send `session.update` to register **tools** and enable **transcription**.
 * Handle function calls:
-
   * Capture `response.output_item.added` with `item.type === "function_call"` to learn `name` and `call_id`.
   * Accumulate args from `response.function_call_arguments.delta`, finalize on `.done`.
   * Execute async function.
   * Send `conversation.item.create` with `{ type:"function_call_output", call_id, output }` then `response.create`. ([Microsoft Learn][8])
 
-### Drop‑in server code
+### code
 
 ```ts
 import http from "node:http";
@@ -582,7 +523,7 @@ const sessionConfig = {
   },
   // Optional starter instructions
   instructions:
-    "You are a helpful voice assistant. Speak responses out loud and also stream text.",
+    "You are a helpful voice assistant.",
 };
 
 type PendingTool = { name: string; args: string };
