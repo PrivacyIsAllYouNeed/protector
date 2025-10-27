@@ -24,7 +24,6 @@ const sessionConfig = {
 };
 
 type PendingTool = { name: string; args: string };
-const pendingByCallId = new Map<string, PendingTool>();
 
 async function delayedAdd({ a, b }: { a: number; b: number }) {
   await new Promise((resolve) => setTimeout(resolve, 800));
@@ -71,6 +70,7 @@ const server = http.createServer(async (req, res) => {
       const location = upstream.headers.get("location");
       const callId = location?.split("/").pop();
       if (callId) {
+        const pendingByCallId = new Map<string, PendingTool>();
         const url = `wss://api.openai.com/v1/realtime?call_id=${callId}`;
         const ws = new WebSocket(url, {
           headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -190,6 +190,7 @@ const server = http.createServer(async (req, res) => {
         });
 
         ws.on("close", (code, reason) => {
+          pendingByCallId.clear();
           console.log("sideband closed", callId, code, reason.toString());
         });
         ws.on("error", (error) => console.error("sideband error", error));

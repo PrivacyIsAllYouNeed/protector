@@ -7,6 +7,49 @@ import {
 
 type Listener = (evt: unknown) => void;
 
+async function waitForIceGatheringComplete(pc: RTCPeerConnection) {
+  if (pc.iceGatheringState === "complete") {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let finished = false;
+
+    const peer = pc as any;
+    const previousStateHandler = peer.onicegatheringstatechange;
+    const previousCandidateHandler = peer.onicecandidate;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      peer.onicegatheringstatechange = previousStateHandler ?? null;
+      peer.onicecandidate = previousCandidateHandler ?? null;
+      resolve();
+    };
+
+    const timeoutId = setTimeout(() => finish(), 5_000);
+
+    const complete = () => {
+      clearTimeout(timeoutId);
+      finish();
+    };
+
+    peer.onicegatheringstatechange = (event: any) => {
+      previousStateHandler?.(event);
+      if (pc.iceGatheringState === "complete") {
+        complete();
+      }
+    };
+
+    peer.onicecandidate = (event: any) => {
+      previousCandidateHandler?.(event);
+      if (!event.candidate) {
+        complete();
+      }
+    };
+  });
+}
+
 export type TranscriptRole = "user" | "assistant" | "system";
 
 export type TranscriptEntry = {
@@ -78,12 +121,19 @@ export default class OpenAIRealtimeClient {
       });
       await this.pc.setLocalDescription(offer);
 
+      await waitForIceGatheringComplete(this.pc);
+
+      const localSdp = this.pc.localDescription?.sdp;
+      if (!localSdp) {
+        throw new Error("Missing localDescription after ICE gathering");
+      }
+
       const response = await fetch(
         `${this.options.serverBaseUrl.replace(/\/$/, "")}/session`,
         {
           method: "POST",
           headers: { "Content-Type": "application/sdp" },
-          body: offer.sdp ?? "",
+          body: localSdp,
         },
       );
 
