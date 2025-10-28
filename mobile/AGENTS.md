@@ -29,8 +29,8 @@ This document explains how the Expo mobile app (`client/`) and Node server (`bac
 **Commands:**
 ```bash
 cd backend
-npm run typecheck
-npm run format
+npm run typecheck # Always run this after changes
+npm run format # Always run this after changes
 # npm run start # Note: Human does this part
 ```
 
@@ -65,8 +65,8 @@ client/
 ### 3.4 Commands
 ```bash
 cd client
-npm run typecheck
-npm run lint
+npm run typecheck # Always run this after changes
+npm run lint # Always run this after changes
 # npm run ios # Note: Human does this part
 ```
 Ensure your device can reach the backend host (use LAN IP or tunneling if needed).

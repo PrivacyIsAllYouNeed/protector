@@ -188,7 +188,7 @@ export default class OpenAIRealtimeClient {
   }
 
   sendUserImageBase64JPEG(base64: string, instruction?: string) {
-    const parts: Array<Record<string, unknown>> = [];
+    const parts: Record<string, unknown>[] = [];
     if (instruction?.trim()) {
       parts.push({ type: "input_text", text: instruction });
     }

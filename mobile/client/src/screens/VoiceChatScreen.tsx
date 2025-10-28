@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, TextInput, FlatList } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  FlatList,
+} from "react-native";
 import Constants from "expo-constants";
 import OpenAIRealtimeClient, {
   TranscriptEntry,
@@ -19,8 +25,8 @@ function createEntry(
 
 export default function VoiceChatScreen() {
   const serverBaseUrl =
-    (Constants?.expoConfig?.extra as Record<string, unknown>)?.SERVER_BASE_URL ??
-    "http://localhost:3000";
+    (Constants?.expoConfig?.extra as Record<string, unknown>)
+      ?.SERVER_BASE_URL ?? "http://localhost:3000";
 
   const client = useMemo(
     () =>
@@ -70,7 +76,7 @@ export default function VoiceChatScreen() {
       assistantBufferRef.current = "";
       setAssistantBuffer("");
     };
-  }, [client]);
+  }, [client, append]);
 
   useEffect(() => {
     return () => {
@@ -135,7 +141,9 @@ export default function VoiceChatScreen() {
               }}
               onPress={() => setCameraVisible(true)}
             >
-              <Text style={{ color: "#fff", fontSize: 16, textAlign: "center" }}>
+              <Text
+                style={{ color: "#fff", fontSize: 16, textAlign: "center" }}
+              >
                 Take photo and ask AI to describe
               </Text>
             </TouchableOpacity>
@@ -190,15 +198,15 @@ export default function VoiceChatScreen() {
                   item.role === "assistant"
                     ? "flex-start"
                     : item.role === "user"
-                    ? "flex-end"
-                    : "center",
+                      ? "flex-end"
+                      : "center",
                 maxWidth: "85%",
                 backgroundColor:
                   item.role === "assistant"
                     ? "#1e88e5"
                     : item.role === "user"
-                    ? "#424242"
-                    : "#333",
+                      ? "#424242"
+                      : "#333",
                 padding: 12,
                 borderRadius: 12,
               }}

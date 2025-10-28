@@ -8,7 +8,11 @@ type CameraModalProps = {
   onShot: (base64: string) => void;
 };
 
-export default function CameraModal({ visible, onClose, onShot }: CameraModalProps) {
+export default function CameraModal({
+  visible,
+  onClose,
+  onShot,
+}: CameraModalProps) {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [ready, setReady] = useState(false);
