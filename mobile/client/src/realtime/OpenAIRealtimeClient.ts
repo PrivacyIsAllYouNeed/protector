@@ -60,7 +60,6 @@ export type TranscriptEntry = {
 
 export type OpenAIRealtimeClientOptions = {
   serverBaseUrl: string;
-  instructions?: string;
 };
 
 export default class OpenAIRealtimeClient {
