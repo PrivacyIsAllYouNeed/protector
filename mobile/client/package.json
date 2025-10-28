@@ -30,6 +30,7 @@
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "prettier": "^3.6.2",
     "react-dom": "19.1.0",
     "typescript": "~5.9.2"
