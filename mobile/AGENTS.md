@@ -71,6 +71,9 @@ npm run lint # Always run this after changes
 ```
 Ensure your device can reach the backend host (use LAN IP or tunneling if needed).
 
+### 3.5 React Compiler
+- `client/app.json` enables the React Compiler. The compiler handles most memoization automatically, so prefer plain functions unless referential stability is required.
+
 ## 4. Tooling & Extensibility
 - **Adding tools**: register additional `function` definitions in `session.update`, then extend `runTool` with real implementations. The pending map is keyed by `call_id` to handle concurrent requests safely.
 - **Streaming UI**: `assistantBufferRef` accumulates `response.text.delta` chunks; on `response.text.done`/`response.done` the buffer is flushed to the transcript list.

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +12,13 @@ import OpenAIRealtimeClient, {
   TranscriptEntry,
 } from "../realtime/OpenAIRealtimeClient";
 import CameraModal from "../components/CameraModal";
+
+function appendEntry(
+  setEntries: Dispatch<SetStateAction<TranscriptEntry[]>>,
+  entry: TranscriptEntry,
+): void {
+  setEntries((prev) => [...prev, entry]);
+}
 
 function createEntry(
   role: TranscriptEntry["role"],
@@ -44,10 +52,6 @@ export default function VoiceChatScreen() {
 
   const assistantBufferRef = useRef("");
 
-  const append = useCallback((entry: TranscriptEntry) => {
-    setEntries((prev) => [...prev, entry]);
-  }, []);
-
   useEffect(() => {
     client.onTranscriptDelta = (_, delta) => {
       assistantBufferRef.current = `${assistantBufferRef.current}${delta}`;
@@ -55,16 +59,19 @@ export default function VoiceChatScreen() {
     };
     client.onTranscriptDone = () => {
       if (assistantBufferRef.current.trim().length) {
-        append(createEntry("assistant", assistantBufferRef.current));
+        appendEntry(
+          setEntries,
+          createEntry("assistant", assistantBufferRef.current),
+        );
         assistantBufferRef.current = "";
         setAssistantBuffer("");
       }
     };
     client.onUserTranscript = (transcript) => {
-      append(createEntry("user", transcript));
+      appendEntry(setEntries, createEntry("user", transcript));
     };
     client.onError = (error) => {
-      append(createEntry("system", `Error: ${error.message}`));
+      appendEntry(setEntries, createEntry("system", `Error: ${error.message}`));
     };
 
     return () => {
@@ -76,7 +83,7 @@ export default function VoiceChatScreen() {
       assistantBufferRef.current = "";
       setAssistantBuffer("");
     };
-  }, [client, append]);
+  }, [client]);
 
   useEffect(() => {
     return () => {
@@ -99,11 +106,17 @@ export default function VoiceChatScreen() {
               try {
                 await client.start();
                 setRunning(true);
-                append(createEntry("system", "Session started."));
+                appendEntry(
+                  setEntries,
+                  createEntry("system", "Session started."),
+                );
               } catch (error) {
                 const message =
                   error instanceof Error ? error.message : String(error);
-                append(createEntry("system", `Failed to start: ${message}`));
+                appendEntry(
+                  setEntries,
+                  createEntry("system", `Failed to start: ${message}`),
+                );
                 setRunning(false);
               }
             }}
@@ -124,7 +137,10 @@ export default function VoiceChatScreen() {
               onPress={async () => {
                 await client.stop();
                 setRunning(false);
-                append(createEntry("system", "Session stopped."));
+                appendEntry(
+                  setEntries,
+                  createEntry("system", "Session stopped."),
+                );
               }}
             >
               <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
@@ -173,7 +189,7 @@ export default function VoiceChatScreen() {
                 onPress={() => {
                   const trimmed = text.trim();
                   if (!trimmed) return;
-                  append(createEntry("user", trimmed));
+                  appendEntry(setEntries, createEntry("user", trimmed));
                   client.sendUserText(trimmed);
                   setText("");
                 }}
@@ -255,7 +271,7 @@ export default function VoiceChatScreen() {
         visible={cameraVisible}
         onClose={() => setCameraVisible(false)}
         onShot={(base64) => {
-          append(createEntry("user", "Sent a photo."));
+          appendEntry(setEntries, createEntry("user", "Sent a photo."));
           client.sendUserImageBase64JPEG(
             base64,
             "Please describe this photo in detail.",
