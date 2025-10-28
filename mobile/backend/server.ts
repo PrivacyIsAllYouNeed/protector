@@ -8,7 +8,7 @@ const OPENAI_API_KEY =
     throw new Error("Set OPENAI_API_KEY in env");
   })();
 const PORT = Number(process.env.PORT ?? 3000);
-const SESSION_INSTRUCTIONS = "You are a helpful voice assistant.";
+const SESSION_INSTRUCTIONS = "You are a helpful and friendly voice assistant.";
 
 http
   .createServer(async (req, res) => {
@@ -42,14 +42,29 @@ http
 const sessionConfig = {
   type: "realtime",
   model: "gpt-realtime",
-  modalities: ["audio", "text"],
-  input_audio_transcription: { model: "whisper-1" },
   audio: {
-    input: { vad: { type: "server_vad" } },
+    input: {
+      noise_reduction: { type: "near_field" },
+      transcription: { language: "en", model: "gpt-4o-transcribe" },
+      turn_detection: { type: "semantic_vad" },
+    },
     output: { voice: "marin" },
   },
   instructions: SESSION_INSTRUCTIONS,
-};
+  tools: [
+    {
+      type: "function",
+      name: "fetch_city_forecast",
+      description: "Retrieve weather for a given city.",
+      parameters: {
+        type: "object",
+        properties: { city: { type: "string" } },
+        required: ["city"],
+        additionalProperties: false,
+      },
+    },
+  ],
+} as const;
 
 async function handleSessionRequest(
   req: http.IncomingMessage,
@@ -69,7 +84,7 @@ async function handleSessionRequest(
   });
 
   const callId = upstream.headers.get("location")?.split("/").pop();
-  if (callId) {
+  if (upstream.ok && callId) {
     startSideband(callId);
   }
 
@@ -90,30 +105,7 @@ function startSideband(callId: string) {
   });
 
   ws.on("open", () => {
-    console.log("sideband connected", callId);
-    ws.send(
-      JSON.stringify({
-        type: "session.update",
-        session: {
-          instructions: SESSION_INSTRUCTIONS,
-          tools: [
-            {
-              type: "function",
-              name: "fetch_city_forecast",
-              description:
-                "Retrieve a playful weather summary for a given city.",
-              parameters: {
-                type: "object",
-                properties: {
-                  city: { type: "string" },
-                },
-                required: ["city"],
-              },
-            },
-          ],
-        },
-      }),
-    );
+    console.log("sideband: connected", callId);
   });
 
   ws.on("message", async (raw) => {
@@ -121,7 +113,7 @@ function startSideband(callId: string) {
     try {
       msg = JSON.parse(raw.toString());
     } catch {
-      console.log("sideband", raw.toString());
+      console.log("sideband: message parse error", raw.toString());
       return;
     }
 
@@ -187,16 +179,18 @@ function startSideband(callId: string) {
     }
 
     if (msg.type === "error") {
-      console.error("sideband error", msg);
+      console.error("sideband: type error", msg);
       return;
     }
+
+    console.error("sideband: uncaught type", msg.type);
   });
 
   ws.on("close", (code, reason) => {
     pendingByCallId.clear();
-    console.log("sideband closed", callId, code, reason.toString());
+    console.log("sideband: closed", callId, code, reason.toString());
   });
-  ws.on("error", (error) => console.error("sideband error", error));
+  ws.on("error", (error) => console.error("sideband error: error", error));
 }
 
 async function runTool(
