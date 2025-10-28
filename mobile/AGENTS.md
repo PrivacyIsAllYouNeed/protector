@@ -5,12 +5,12 @@ This document explains how the Expo mobile app (`client/`) and Node server (`bac
 ## 1. Architecture Overview
 - **Mobile client** (Expo Router) captures microphone audio, gathers the full SDP offer, posts it to the backend, then establishes a direct WebRTC session with OpenAI once the SDP answer comes back. After that point, audio and the `oai-events` data channel travel straight between the device and OpenAI.
 - **Backend server** exists for signaling and tooling: it forwards the initial `FormData { sdp, session }` to `https://api.openai.com/v1/realtime/calls`, passes the answer SDP back to the client, and keeps the Sideband WebSocket open to execute function tools on the app’s behalf.
-- **Realtime model**: `gpt-realtime` with audio+text modalities, Whisper transcription, server VAD, and configurable voice/instructions.
+- **Realtime model**: `gpt-realtime` with audio+text modalities, Whisper transcription, server VAD, and a fixed voice/instructions pair.
 
 ## 2. Backend (`backend/server.ts`)
 1. **Environment**
    - `OPENAI_API_KEY` (required)
-   - Optional overrides: `REALTIME_INSTRUCTIONS`, `REALTIME_VOICE`, `PORT`.
+   - Optional overrides: `PORT`.
 2. **Session config**
    - `modalities: ["audio", "text"]` enables text deltas alongside audio playback.
    - `input_audio_transcription` defaults to Whisper for user transcripts displayed in the UI.
