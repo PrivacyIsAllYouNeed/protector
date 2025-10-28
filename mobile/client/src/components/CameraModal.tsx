@@ -68,7 +68,6 @@ export default function CameraModal({
           <TouchableOpacity
             onPress={async () => {
               if (!cameraRef.current || !ready) return;
-              // @ts-ignore CameraView takePictureAsync is exposed at runtime
               const shot = await cameraRef.current.takePictureAsync({
                 base64: true,
                 quality: 0.8,
