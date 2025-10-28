@@ -8,8 +8,8 @@ if (!OPENAI_API_KEY) {
   throw new Error("Set OPENAI_API_KEY in env");
 }
 
-const SESSION_INSTRUCTIONS =
-  process.env.REALTIME_INSTRUCTIONS ?? "You are a helpful voice assistant.";
+const SESSION_INSTRUCTIONS = "You are a helpful voice assistant.";
+const SESSION_VOICE = "marin";
 
 const sessionConfig = {
   type: "realtime",
@@ -18,7 +18,7 @@ const sessionConfig = {
   input_audio_transcription: { model: "whisper-1" },
   audio: {
     input: { vad: { type: "server_vad" } },
-    output: { voice: process.env.REALTIME_VOICE ?? "marin" },
+    output: { voice: SESSION_VOICE },
   },
   instructions: SESSION_INSTRUCTIONS,
 };
