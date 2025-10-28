@@ -9,7 +9,6 @@ if (!OPENAI_API_KEY) {
 }
 
 const SESSION_INSTRUCTIONS = "You are a helpful voice assistant.";
-const SESSION_VOICE = "marin";
 
 const sessionConfig = {
   type: "realtime",
@@ -18,21 +17,20 @@ const sessionConfig = {
   input_audio_transcription: { model: "whisper-1" },
   audio: {
     input: { vad: { type: "server_vad" } },
-    output: { voice: SESSION_VOICE },
+    output: { voice: "marin" },
   },
   instructions: SESSION_INSTRUCTIONS,
 };
 
-type PendingTool = { name: string; args: string };
-
-async function delayedAdd({ a, b }: { a: number; b: number }) {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  return { sum: Number(a) + Number(b) };
-}
-
-async function echoUpper({ text: value }: { text: string }) {
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  return { result: String(value).toUpperCase() };
+async function fetchCityForecast(args: Record<string, unknown>) {
+  const city = args.city;
+  const normalizedCity =
+    typeof city === "string" ? city.trim() : String(city ?? "").trim();
+  if (!normalizedCity) {
+    throw new Error("city is required");
+  }
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return { city: normalizedCity, forecast: "Sunny" };
 }
 
 async function runTool(
@@ -40,10 +38,8 @@ async function runTool(
   args: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   switch (name) {
-    case "delayed_add":
-      return delayedAdd(args as { a: number; b: number });
-    case "echo_upper":
-      return echoUpper(args as { text: string });
+    case "fetch_city_forecast":
+      return fetchCityForecast(args);
     default:
       return { error: `unknown tool: ${name}` };
   }
@@ -70,7 +66,10 @@ const server = http.createServer(async (req, res) => {
       const location = upstream.headers.get("location");
       const callId = location?.split("/").pop();
       if (callId) {
-        const pendingByCallId = new Map<string, PendingTool>();
+        const pendingByCallId = new Map<
+          string,
+          { name: string; args: string }
+        >();
         const url = `wss://api.openai.com/v1/realtime?call_id=${callId}`;
         const ws = new WebSocket(url, {
           headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -86,25 +85,14 @@ const server = http.createServer(async (req, res) => {
                 tools: [
                   {
                     type: "function",
-                    name: "delayed_add",
-                    description: "Add two numbers slowly",
+                    name: "fetch_city_forecast",
+                    description: "Retrieve a weather for a given city.",
                     parameters: {
                       type: "object",
                       properties: {
-                        a: { type: "number" },
-                        b: { type: "number" },
+                        city: { type: "string" },
                       },
-                      required: ["a", "b"],
-                    },
-                  },
-                  {
-                    type: "function",
-                    name: "echo_upper",
-                    description: "Uppercase a string",
-                    parameters: {
-                      type: "object",
-                      properties: { text: { type: "string" } },
-                      required: ["text"],
+                      required: ["city"],
                     },
                   },
                 ],
@@ -172,7 +160,8 @@ const server = http.createServer(async (req, res) => {
                     type: "function_call_output",
                     call_id: call,
                     output: JSON.stringify({
-                      error: error instanceof Error ? error.message : String(error),
+                      error:
+                        error instanceof Error ? error.message : String(error),
                     }),
                   },
                 }),

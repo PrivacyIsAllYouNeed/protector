@@ -1,5 +1,8 @@
-Node 22 (comes with a type stripping feature)
+Requirements:
+- Node 22
 
+Run:
 ```
-node server.ts
+npm install
+npm run start
 ```
