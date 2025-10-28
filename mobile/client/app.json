@@ -17,7 +17,6 @@
       "ios"
     ],
     "ios": {
-      "supportsTablet": true,
       "bundleIdentifier": "com.example.tash-2s.client"
     },
     "experiments": {
