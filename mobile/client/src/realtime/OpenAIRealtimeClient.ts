@@ -69,6 +69,7 @@ export default class OpenAIRealtimeClient {
   private dc: any | null = null;
   private localStream: MediaStream | null = null;
   private started = false;
+  private pendingMessages: string[] = [];
 
   // event listeners
   onServerEvent: Listener | null = null;
@@ -107,8 +108,14 @@ export default class OpenAIRealtimeClient {
 
       // Data channel for realtime events
       this.dc = this.pc.createDataChannel("oai-events");
+      this.dc.onopen = () => {
+        this.flushPendingMessages();
+      };
       this.dc.onmessage = (event: { data: string }) =>
         this.handleServerMessage(event.data);
+      if (this.dc.readyState === "open") {
+        this.flushPendingMessages();
+      }
 
       // Remote audio plays automatically; no UI element required
       // @ts-ignore react-native-webrtc exposes ontrack at runtime
@@ -166,8 +173,6 @@ export default class OpenAIRealtimeClient {
   }
 
   sendUserText(text: string) {
-    if (!this.dc || this.dc.readyState !== "open") return;
-
     const createEvent = {
       type: "conversation.item.create",
       item: {
@@ -178,13 +183,11 @@ export default class OpenAIRealtimeClient {
     };
     const respondEvent = { type: "response.create" };
 
-    this.dc.send(JSON.stringify(createEvent));
-    this.dc.send(JSON.stringify(respondEvent));
+    this.sendOrQueue(createEvent);
+    this.sendOrQueue(respondEvent);
   }
 
   sendUserImageBase64JPEG(base64: string, instruction?: string) {
-    if (!this.dc || this.dc.readyState !== "open") return;
-
     const parts: Array<Record<string, unknown>> = [];
     if (instruction?.trim()) {
       parts.push({ type: "input_text", text: instruction });
@@ -204,13 +207,12 @@ export default class OpenAIRealtimeClient {
     };
     const respondEvent = { type: "response.create" };
 
-    this.dc.send(JSON.stringify(createEvent));
-    this.dc.send(JSON.stringify(respondEvent));
+    this.sendOrQueue(createEvent);
+    this.sendOrQueue(respondEvent);
   }
 
   sendEvent(payload: unknown) {
-    if (!this.dc || this.dc.readyState !== "open") return;
-    this.dc.send(JSON.stringify(payload));
+    this.sendOrQueue(payload);
   }
 
   private handleServerMessage(raw: string) {
@@ -270,6 +272,28 @@ export default class OpenAIRealtimeClient {
       this.pc = null;
       this.localStream?.getTracks().forEach((track) => track.stop());
       this.localStream = null;
+      this.pendingMessages = [];
+    }
+  }
+
+  private sendOrQueue(payload: unknown) {
+    const data = JSON.stringify(payload);
+    if (this.dc && this.dc.readyState === "open") {
+      this.dc.send(data);
+    } else {
+      this.pendingMessages.push(data);
+    }
+  }
+
+  private flushPendingMessages() {
+    if (!this.dc || this.dc.readyState !== "open") {
+      return;
+    }
+    while (this.pendingMessages.length > 0) {
+      const data = this.pendingMessages.shift();
+      if (data !== undefined) {
+        this.dc.send(data);
+      }
     }
   }
 }
