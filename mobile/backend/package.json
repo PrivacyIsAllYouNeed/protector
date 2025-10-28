@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "start": "node --env-file-if-exists=.env server.ts",
     "typecheck": "tsc",
     "format": "prettier '**/*.ts' --write"
   },
