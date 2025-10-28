@@ -1,4 +1,4 @@
-import { StatusBar } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import VoiceChatScreen from "../src/screens/VoiceChatScreen";
 
@@ -8,7 +8,7 @@ export default function Index() {
       style={{ flex: 1, backgroundColor: "#111" }}
       edges={["top", "bottom"]}
     >
-      <StatusBar barStyle="light-content" />
+      <StatusBar style="light" />
       <VoiceChatScreen />
     </SafeAreaView>
   );
