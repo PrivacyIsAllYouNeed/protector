@@ -13,6 +13,15 @@ import OpenAIRealtimeClient, {
 } from "../realtime/OpenAIRealtimeClient";
 import CameraModal from "../components/CameraModal";
 
+const extra = Constants?.expoConfig?.extra as
+  | Record<string, unknown>
+  | undefined;
+const maybeServerBaseUrl = extra?.SERVER_BASE_URL;
+const SERVER_BASE_URL =
+  typeof maybeServerBaseUrl === "string" && maybeServerBaseUrl.trim().length > 0
+    ? maybeServerBaseUrl
+    : "http://localhost:3000";
+
 function appendEntry(
   setEntries: Dispatch<SetStateAction<TranscriptEntry[]>>,
   entry: TranscriptEntry,
@@ -32,16 +41,12 @@ function createEntry(
 }
 
 export default function VoiceChatScreen() {
-  const serverBaseUrl =
-    (Constants?.expoConfig?.extra as Record<string, unknown>)
-      ?.SERVER_BASE_URL ?? "http://localhost:3000";
-
   const client = useMemo(
     () =>
       new OpenAIRealtimeClient({
-        serverBaseUrl: String(serverBaseUrl),
+        serverBaseUrl: SERVER_BASE_URL,
       }),
-    [serverBaseUrl],
+    [],
   );
 
   const [running, setRunning] = useState(false);

@@ -1,6 +1,8 @@
 # Realtime AI Expo mobile app
 
-This document explains how the Expo mobile app (`client/`) and Node server (`backend/`) work together to support OpenAI’s Realtime WebRTC stack, the tooling loop, and multimodal UX. It supplements `tech-arch.md` with repository-specific details.
+This document explains how the Expo mobile app (`client/`) and Node server (`backend/`) work together to support OpenAI’s Realtime WebRTC stack, the tooling loop, and multimodal UX.
+
+`tech-arch.md` is an initial design snapshot and may diverge from the current implementation; treat it as historical context rather than a living spec.
 
 ## 1. Architecture Overview
 - **Mobile client** (Expo Router) captures microphone audio, gathers the full SDP offer, posts it to the backend, then establishes a direct WebRTC session with OpenAI once the SDP answer comes back. After that point, audio and the `oai-events` data channel travel straight between the device and OpenAI.
@@ -60,7 +62,7 @@ client/
 - **Assistant stream** displays running deltas and completed responses in a chat-style FlatList.
 - **Text input** sends typed prompts.
 - **CameraModal** requests permissions, captures Base64 JPEGs, and posts them along with a default instruction (`"Please describe this photo in detail."`).
-- Uses `Constants.expoConfig?.extra?.SERVER_BASE_URL` to find the backend (falls back to `http://localhost:3000` for local dev). Set this via `app.config.js` or app.json extras when targeting devices.
+- Resolves the backend URL once at module load from `Constants.expoConfig?.extra?.SERVER_BASE_URL`, falling back to `http://localhost:3000` for local dev. Set this via `app.config.js` or app.json extras when targeting devices.
 
 ### 3.4 Commands
 ```bash
