@@ -124,6 +124,7 @@ function startSideband(callId: string) {
       msg.response.output[0].status === "completed"
     ) {
       const call = msg.response.output[0];
+      console.log("response.done, tool call: ", call);
 
       const args = JSON.parse(call.arguments);
 

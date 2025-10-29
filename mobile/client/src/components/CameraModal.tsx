@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Modal, View, TouchableOpacity, Text } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 type CameraModalProps = {
   visible: boolean;
@@ -68,13 +69,15 @@ export default function CameraModal({
           <TouchableOpacity
             onPress={async () => {
               if (!cameraRef.current || !ready) return;
-              const shot = await cameraRef.current.takePictureAsync({
-                base64: true,
-                quality: 0.8,
-                skipProcessing: true,
-              });
-              if (shot?.base64) {
-                onShot(shot.base64);
+              const shot = await cameraRef.current.takePictureAsync();
+              const result = await manipulateAsync(
+                shot.uri,
+                [{ resize: { height: 1000 } }],
+                { base64: true, compress: 0.5, format: SaveFormat.JPEG },
+              );
+              const b64 = result.base64;
+              if (b64) {
+                onShot(b64);
               }
               onClose();
             }}

@@ -226,13 +226,12 @@ export default class OpenAIRealtimeClient {
     this.onServerEvent?.(message);
 
     switch (message.type) {
-      case "response.output_text.delta":
+      case "response.output_audio_transcript.delta":
         this.onTranscriptDelta?.("assistant", message.delta ?? "");
         break;
-      case "response.output_text.done":
-        this.onTranscriptDone?.("assistant", message.text);
+      case "response.output_audio_transcript.done":
+        this.onTranscriptDone?.("assistant", message.transcript);
         break;
-      // we should be able to use delta
       case "conversation.item.input_audio_transcription.completed":
         this.onUserTranscript?.(message.transcript);
         break;
@@ -242,7 +241,7 @@ export default class OpenAIRealtimeClient {
         );
         break;
       default:
-        console.log("unhandled message", message);
+        // console.log("unhandled message", message);
         break;
     }
   }
