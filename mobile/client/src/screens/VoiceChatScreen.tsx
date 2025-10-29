@@ -7,16 +7,12 @@ import {
   TextInput,
   FlatList,
 } from "react-native";
-import Constants from "expo-constants";
 import OpenAIRealtimeClient, {
   TranscriptEntry,
 } from "../realtime/OpenAIRealtimeClient";
 import CameraModal from "../components/CameraModal";
 
-const extra = Constants?.expoConfig?.extra as
-  | Record<string, unknown>
-  | undefined;
-const maybeServerBaseUrl = extra?.SERVER_BASE_URL;
+const maybeServerBaseUrl = process.env.EXPO_PUBLIC_SERVER_URL;
 const SERVER_BASE_URL =
   typeof maybeServerBaseUrl === "string" && maybeServerBaseUrl.trim().length > 0
     ? maybeServerBaseUrl
