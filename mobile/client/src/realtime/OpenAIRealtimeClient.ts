@@ -219,31 +219,22 @@ export default class OpenAIRealtimeClient {
     try {
       message = JSON.parse(raw);
     } catch {
+      console.error("parse error", raw);
       return;
     }
 
     this.onServerEvent?.(message);
 
     switch (message.type) {
-      case "response.text.delta":
+      case "response.output_text.delta":
         this.onTranscriptDelta?.("assistant", message.delta ?? "");
         break;
-      case "response.text.done":
-        if (typeof message?.text === "string") {
-          this.onTranscriptDone?.("assistant", message.text);
-        }
+      case "response.output_text.done":
+        this.onTranscriptDone?.("assistant", message.text);
         break;
-      case "response.done":
-        if (typeof message?.response?.output_text === "string") {
-          this.onTranscriptDone?.("assistant", message.response.output_text);
-        } else {
-          this.onTranscriptDone?.("assistant", "");
-        }
-        break;
+      // we should be able to use delta
       case "conversation.item.input_audio_transcription.completed":
-        if (message.transcript) {
-          this.onUserTranscript?.(message.transcript);
-        }
+        this.onUserTranscript?.(message.transcript);
         break;
       case "error":
         this.onError?.(
@@ -251,6 +242,7 @@ export default class OpenAIRealtimeClient {
         );
         break;
       default:
+        console.log("unhandled message", message);
         break;
     }
   }
