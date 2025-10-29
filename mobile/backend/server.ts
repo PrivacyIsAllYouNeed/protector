@@ -45,7 +45,7 @@ const sessionConfig = {
   audio: {
     input: {
       noise_reduction: { type: "near_field" },
-      transcription: { language: "en", model: "gpt-4o-transcribe" },
+      transcription: { language: "en", model: "gpt-4o-mini-transcribe" },
       turn_detection: { type: "semantic_vad" },
     },
     output: { voice: "marin" },
@@ -58,9 +58,10 @@ const sessionConfig = {
       description: "Retrieve weather for a given city.",
       parameters: {
         type: "object",
-        properties: { city: { type: "string" } },
+        properties: {
+          city: { type: "string", description: "Name of the city." },
+        },
         required: ["city"],
-        additionalProperties: false,
       },
     },
   ],
@@ -98,7 +99,6 @@ async function handleSessionRequest(
 }
 
 function startSideband(callId: string) {
-  const pendingByCallId = new Map<string, { name: string; args: string }>();
   const url = `wss://api.openai.com/v1/realtime?call_id=${callId}`;
   const ws = new WebSocket(url, {
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -118,43 +118,23 @@ function startSideband(callId: string) {
     }
 
     if (
-      msg.type === "response.output_item.added" &&
-      msg.item?.type === "function_call"
+      msg.type === "response.done" &&
+      msg.response.status === "completed" &&
+      msg.response.output[0].type === "function_call" &&
+      msg.response.output[0].status === "completed"
     ) {
-      const { call_id: pendingId, name } = msg.item;
-      if (pendingId && name) {
-        pendingByCallId.set(pendingId, { name, args: "" });
-      }
-      return;
-    }
+      const call = msg.response.output[0];
 
-    if (msg.type === "response.function_call_arguments.delta") {
-      const pending = pendingByCallId.get(msg.call_id);
-      if (pending) pending.args += msg.delta ?? "";
-      return;
-    }
-
-    if (msg.type === "response.function_call_arguments.done") {
-      const call = msg.call_id;
-      const pending = pendingByCallId.get(call);
-      if (!pending) return;
-      pendingByCallId.delete(call);
-
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(pending.args || msg.arguments || "{}");
-      } catch {
-        parsed = { _raw: pending.args ?? msg.arguments };
-      }
+      const args = JSON.parse(call.arguments);
 
       try {
-        const output = await runTool(pending.name, parsed);
+        const output = await runTool(call.name, args);
         ws.send(
           JSON.stringify({
             type: "conversation.item.create",
             item: {
               type: "function_call_output",
-              call_id: call,
+              call_id: call.call_id,
               output: JSON.stringify(output),
             },
           }),
@@ -165,7 +145,7 @@ function startSideband(callId: string) {
             type: "conversation.item.create",
             item: {
               type: "function_call_output",
-              call_id: call,
+              call_id: call.call_id,
               output: JSON.stringify({
                 error: error instanceof Error ? error.message : String(error),
               }),
@@ -178,16 +158,10 @@ function startSideband(callId: string) {
       return;
     }
 
-    if (msg.type === "error") {
-      console.error("sideband: type error", msg);
-      return;
-    }
-
-    console.error("sideband: uncaught type", msg.type);
+    console.error("sideband: unhandled type", msg.type);
   });
 
   ws.on("close", (code, reason) => {
-    pendingByCallId.clear();
     console.log("sideband: closed", callId, code, reason.toString());
   });
   ws.on("error", (error) => console.error("sideband error: error", error));
